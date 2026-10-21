@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><ellipse cx="16" cy="9" rx="6" ry="8" fill="#2B4FD8"/><ellipse cx="16" cy="23" rx="6" ry="8" fill="#E3A21A"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>JR</title>
+  <rect width="32" height="32" rx="7" fill="#1f2140"/>
+  <path d="M3 26 Q 16 31, 29.5 17" fill="none" stroke="#7390ff" stroke-width="1.4" stroke-linecap="round" opacity="0.75"/>
+  <path d="M13 8 V19 a3.5 3.5 0 0 1 -7 0" fill="none" stroke="#f6f2eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17.5 24 V8 H21.5 a4 4 0 0 1 0 8 H17.5 M21.4 16 L26 24" fill="none" stroke="#f6f2eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27" cy="6.5" r="1.7" fill="#f2b740"/>
+  <circle cx="5" cy="5.5" r="0.8" fill="#efe9df"/>
+</svg>

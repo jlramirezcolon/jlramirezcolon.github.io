@@ -35,7 +35,7 @@ npm run preview   # serve the built dist/
 
 There are no tests, linter, or type-check script. `npm run build` is the verification step: a frontmatter field that violates `src/content.config.ts` (e.g. an unknown `threads` value or a bad `cover` path) fails the build.
 
-Deployment: every push to `main` runs `.github/workflows/deploy.yml` (`withastro/action` → `deploy-pages`). `site` in `astro.config.mjs` is still a placeholder; hreflang and og:image URLs are built from it.
+Deployment: every push to `main` runs `.github/workflows/deploy.yml` (`withastro/action` → `deploy-pages`). The live site is https://jlramirezcolon.github.io (repo `jlramirezcolon/jlramirezcolon.github.io`, Pages source: GitHub Actions); `site` in `astro.config.mjs` must match it, since hreflang and og:image URLs are built from it. Pushes use an HTTPS token saved in the macOS Keychain (it needs the `repo` and `workflow` scopes). The project lives in an iCloud-synced Desktop folder set to "Keep Downloaded"; if builds hang silently, check for offloaded files with `find . -flags +dataless`.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ Deployment: every push to `main` runs `.github/workflows/deploy.yml` (`withastro
 
 **Threads.** `threads` in `i18n.ts` (`research`, `communication`, `leadership`, `design`) is both the Zod enum for project frontmatter and the filter in `src/components/WorkGrid.astro`, which filters client-side via `data-threads` attributes. Adding a thread requires a label in both `ui.en.threads` and `ui.es.threads`.
 
-**Images.** Project covers and inline figures live in `src/assets/work/` and are referenced by relative path from Markdown (`../../../assets/work/x.jpg`) so Astro optimizes them. Only `favicon.svg` and `cv.pdf` belong in `public/`. Source documents (articles, abstracts, reports, CV) are kept in `src/docs/` for reference and are not published.
+**Images.** Project covers and inline figures live in `src/assets/work/` and are referenced by relative path from Markdown (`../../../assets/work/x.jpg`) so Astro optimizes them. Only `favicon.svg` (the JR monogram with an amber star and cobalt orbit arc), `apple-touch-icon.png` (the same icon as a 180 px square for iPhone home screens), and `cv.pdf` belong in `public/`. Source documents (articles, abstracts, reports, CV) are kept in `src/docs/` for reference and are not published.
 
 **Hero.** `src/components/Hero.astro`: portrait (`src/assets/work/profile-pic.jpg`), headline (`heroTitle`), greeting, intro, and a link to About, over a canvas spiral galaxy drawn in the site's tokens. **Orbital.** The 3D glycine HOMO/LUMO figure on the LUMOS page (`src/components/demos/OrbitalDemo.astro`, three.js) uses the owner's glycine zwitterion geometry (`src/docs/glycine-zwitterion.mol2`) and real orbital surfaces in `src/data/glycine-orbitals.json`: an ORCA ωB97X-D3/def2-TZVP single point, evaluated on a grid and contoured at ±0.05 a.u. by `src/docs/orbitals/evalmo.py` (each orbital integrates to 1 within 0.2%, the built-in check). The owner's own renders (`glycine-homo.png`, `glycine-lumo.png`) are the visual reference. Never replace the surfaces with hand-drawn lobes.
 

@@ -22,6 +22,7 @@ const esPath = lang === 'es' ? path : otherLangPath('en', path);
     <title>{fullTitle}</title>
     <meta name="description" content={desc} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="alternate" hreflang="en" href={new URL(enPath, Astro.site)} />
     <link rel="alternate" hreflang="es" href={new URL(esPath, Astro.site)} />
     <meta property="og:title" content={fullTitle} />
