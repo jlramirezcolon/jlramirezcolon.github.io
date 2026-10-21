@@ -1,0 +1,112 @@
+---
+// ELIE: HOMO-LUMO gap vs single-molecule conductance for 8 proteinogenic amino acids
+// (Carr, Ramírez-Colón et al. 2023, Astrobiology, Fig. 5a: conductance from Ohshiro et al. 2014 with
+// 0.70 nm nanogap electrodes; HOMO-LUMO gaps from Granold et al. 2018). The fit line is an ordinary
+// least-squares fit computed here from these eight values.
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const s = t.conductance;
+
+const points = [
+  { code: 'Asp', g: 183, hlg: 11.32 },
+  { code: 'Ile', g: 128, hlg: 11.26 },
+  { code: 'Glu', g: 168, hlg: 11.22 },
+  { code: 'Pro', g: 235, hlg: 11.09 },
+  { code: 'His', g: 609, hlg: 9.95 },
+  { code: 'Phe', g: 690, hlg: 9.9 },
+  { code: 'Tyr', g: 874, hlg: 9.37 },
+  { code: 'Trp', g: 952, hlg: 8.6 },
+] as const;
+
+// Least-squares fit of gap on conductance, and R².
+const n = points.length;
+const mx = points.reduce((a, p) => a + p.g, 0) / n;
+const my = points.reduce((a, p) => a + p.hlg, 0) / n;
+const sxx = points.reduce((a, p) => a + (p.g - mx) ** 2, 0);
+const sxy = points.reduce((a, p) => a + (p.g - mx) * (p.hlg - my), 0);
+const syy = points.reduce((a, p) => a + (p.hlg - my) ** 2, 0);
+const slope = sxy / sxx, intercept = my - slope * mx;
+const r2 = (sxy * sxy) / (sxx * syy);
+
+const W = 600, H = 340, pad = { l: 56, r: 20, t: 16, b: 50 };
+const xMin = 0, xMax = 1000, yMin = 8.5, yMax = 11.5;
+const X = (g: number) => pad.l + ((g - xMin) / (xMax - xMin)) * (W - pad.l - pad.r);
+const Y = (e: number) => pad.t + (1 - (e - yMin) / (yMax - yMin)) * (H - pad.t - pad.b);
+const xTicks = [0, 250, 500, 750, 1000];
+const yTicks = [8.5, 9, 9.5, 10, 10.5, 11, 11.5];
+// Nudge a few labels so neighbors don't collide.
+const labelOffset: Record<string, [number, number]> = { Asp: [8, -10], Ile: [-30, -10], Glu: [-12, 22], Pro: [10, 4], His: [-34, -8], Phe: [10, -8] };
+---
+<figure class="demo conductance" data-conductance>
+  <div class="demo-head">
+    <span class="label">{t.data}</span>
+    <h3>{s.title}</h3>
+    <p>{s.intro}</p>
+  </div>
+
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="cond-title cond-desc">
+    <title id="cond-title">{s.title}</title>
+    <desc id="cond-desc">{points.map((p) => `${s.names[p.code]}: ${p.g} pS, ${p.hlg} eV`).join('; ')}</desc>
+    {yTicks.map((v) => (
+      <g class="grid">
+        <line x1={pad.l} x2={W - pad.r} y1={Y(v)} y2={Y(v)} />
+        <text x={pad.l - 8} y={Y(v) + 4} text-anchor="end">{v.toFixed(1)}</text>
+      </g>
+    ))}
+    {xTicks.map((v) => <text class="tick" x={X(v)} y={H - pad.b + 18} text-anchor="middle">{v}</text>)}
+    <text class="axis" x={(pad.l + W - pad.r) / 2} y={H - 8} text-anchor="middle">{s.xLabel}</text>
+    <text class="axis" x={14} y={(pad.t + H - pad.b) / 2} text-anchor="middle" transform={`rotate(-90 14 ${(pad.t + H - pad.b) / 2})`}>{s.yLabel}</text>
+    <line class="fit" x1={X(80)} y1={Y(intercept + slope * 80)} x2={X(990)} y2={Y(intercept + slope * 990)} />
+    <text class="r2" x={W - pad.r} y={pad.t + 14} text-anchor="end">{s.fit}: R² = {r2.toFixed(2)}</text>
+    {points.map((p) => {
+      const [dx, dy] = labelOffset[p.code] ?? [10, -8];
+      return (
+        <g class="pt" tabindex="0" data-point={p.code} data-text={`${s.names[p.code]}: ${p.g} pS · ${p.hlg} eV`}>
+          <title>{`${s.names[p.code]}: ${p.g} pS, ${p.hlg} eV`}</title>
+          <circle cx={X(p.g)} cy={Y(p.hlg)} r="14" class="halo" />
+          <circle cx={X(p.g)} cy={Y(p.hlg)} r="6" class="dot" />
+          <text x={X(p.g) + dx} y={Y(p.hlg) + dy}>{p.code}</text>
+        </g>
+      );
+    })}
+  </svg>
+  <p class="demo-caption" aria-live="polite"><span data-readout>{s.prompt}</span></p>
+  <p class="demo-note">{s.note}</p>
+</figure>
+
+<style>
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .grid line { stroke: var(--rule); }
+  .grid text, .tick { fill: var(--slate); font: 300 12px var(--font-sans); }
+  .axis { fill: var(--slate); font: 300 13px var(--font-sans); }
+  .fit { stroke: var(--slate); stroke-width: 1.5; stroke-dasharray: 6 5; }
+  .r2 { fill: var(--slate); font: 300 13px var(--font-sans); }
+  .pt { cursor: default; outline: none; }
+  .pt .dot { fill: var(--homo); transition: r 0.2s; }
+  .pt .halo { fill: var(--homo); opacity: 0; transition: opacity 0.2s; }
+  .pt text { fill: var(--ink); font: 300 13px var(--font-sans); }
+  .pt:hover .halo, .pt:focus-visible .halo, .pt.active .halo { opacity: 0.18; }
+  .pt:hover .dot, .pt:focus-visible .dot, .pt.active .dot { fill: var(--lumo); }
+  @media (prefers-reduced-motion: reduce) { .pt .dot, .pt .halo { transition: none; } }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-conductance]')) {
+    const readout = root.querySelector<HTMLElement>('[data-readout]')!;
+    const prompt = readout.textContent;
+    const pts = root.querySelectorAll<SVGGElement>('[data-point]');
+    const show = (pt: SVGGElement | null) => {
+      pts.forEach((p) => p.classList.toggle('active', p === pt));
+      readout.textContent = pt ? pt.dataset.text! : prompt;
+    };
+    pts.forEach((pt) => {
+      pt.addEventListener('pointerenter', () => show(pt));
+      pt.addEventListener('pointerleave', () => show(null));
+      pt.addEventListener('focus', () => show(pt));
+      pt.addEventListener('blur', () => show(null));
+      pt.addEventListener('click', () => show(pt));
+    });
+  }
+</script>

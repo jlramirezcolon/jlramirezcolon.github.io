@@ -1,0 +1,185 @@
+---
+// Oysters: measured turbidity (NTU) in each aquarium, from José Luis's 2016 report
+// (Biofiltering efficiency of Crassostrea rhizophorae in estuarine waters, Tables 2–5 and 7–9).
+// Part 1: lagoon water at four turbidity levels, measured hourly. Part 2: extra lagoon sediment
+// added to aquariums A–C, measured every half hour (the control was not changed).
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const s = t.oyster;
+
+const parts = [
+  {
+    id: 'p1', times: [0, 1, 2], unit: 'h', max: 50,
+    tanks: [
+      { id: 'control', ntu: [10.9, 1.6, 0.7] },
+      { id: 'a', ntu: [22.5, 5.9, 1.9] },
+      { id: 'b', ntu: [34.5, 8.1, 5.6] },
+      { id: 'c', ntu: [44, 11.7, 1.9] },
+    ],
+  },
+  {
+    id: 'p2', times: [0, 0.5, 1], unit: 'h', max: 225,
+    tanks: [
+      { id: 'a', ntu: [103.5, 44.7, 22.6] },
+      { id: 'b', ntu: [156.2, 88.3, 56.7] },
+      { id: 'c', ntu: [216.4, 94.1, 33.2] },
+    ],
+  },
+] as const;
+const tankColor: Record<string, string> = { control: 'var(--slate)', a: 'var(--homo)', b: 'var(--ink)', c: 'var(--lumo)' };
+// Cloudiness of the drawn water: 0 (clear) to 1 (murkiest measured).
+const murk = (ntu: number) => Math.min(1, Math.log10(1 + ntu) / Math.log10(1 + 216.4));
+const W = 600, H = 230, pad = { l: 46, r: 16, t: 14, b: 34 };
+const timeLabel = (v: number) => (v === 0 ? '0' : v < 1 ? `${v * 60} min` : `${v} h`);
+---
+<figure class="demo oyster" data-oyster data-part="p1" data-step="0">
+  <div class="demo-head">
+    <span class="label">{t.data}</span>
+    <h3>{s.title}</h3>
+    <p>{s.intro}</p>
+  </div>
+
+  <div class="demo-controls">
+    <div class="demo-group" role="group" aria-label={s.partLabel}>
+      <button type="button" data-set-part="p1" aria-pressed="true">{s.p1}</button>
+      <button type="button" data-set-part="p2" aria-pressed="false">{s.p2}</button>
+    </div>
+  </div>
+
+  {parts.map((p) => (
+    <div class="part" data-part-panel={p.id} hidden={p.id !== 'p1'}>
+      <div class="tanks">
+        {p.tanks.map((tank) => (
+          <div class="tank" data-ntu={JSON.stringify(tank.ntu)} data-murk={JSON.stringify(tank.ntu.map(murk))} style={`--murk: ${murk(tank.ntu[0])}`}>
+            <div class="glass"><div class="water"></div></div>
+            <span class="tank-name" style={`--dot: ${tankColor[tank.id]}`}>{s.tanks[tank.id]}</span>
+            <span class="ntu"><b>{tank.ntu[0]}</b> NTU</span>
+          </div>
+        ))}
+      </div>
+
+      <div class="demo-controls times">
+        <div class="demo-group" role="group" aria-label={s.timeLabel}>
+          <span class="label">{s.timeLabel}</span>
+          {p.times.map((v, i) => (
+            <button type="button" data-time={i} aria-pressed={i === 0 ? 'true' : 'false'}>{timeLabel(v)}</button>
+          ))}
+          <button type="button" class="play" data-play>{s.play}</button>
+        </div>
+      </div>
+
+      <svg class="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${s.title}: ${p.id === 'p1' ? s.p1 : s.p2}`}>
+        {[0, 0.5, 1].map((f) => {
+          const y = pad.t + (1 - f) * (H - pad.t - pad.b);
+          return (
+            <g class="grid">
+              <line x1={pad.l} x2={W - pad.r} y1={y} y2={y} />
+              <text x={pad.l - 8} y={y + 4} text-anchor="end">{Math.round(f * p.max)}</text>
+            </g>
+          );
+        })}
+        <text class="axis" x={12} y={pad.t + (H - pad.t - pad.b) / 2} transform={`rotate(-90 12 ${pad.t + (H - pad.t - pad.b) / 2})`} text-anchor="middle">NTU</text>
+        {p.times.map((v, i) => {
+          const x = pad.l + (i / (p.times.length - 1)) * (W - pad.l - pad.r);
+          return <text class="axis" x={x} y={H - 10} text-anchor={i === 0 ? 'start' : i === p.times.length - 1 ? 'end' : 'middle'}>{timeLabel(v)}</text>;
+        })}
+        <line class="now" data-now x1={pad.l} x2={pad.l} y1={pad.t} y2={H - pad.b} />
+        {p.tanks.map((tank) => {
+          const pts = tank.ntu.map((v, i) => [pad.l + (i / (p.times.length - 1)) * (W - pad.l - pad.r), pad.t + (1 - v / p.max) * (H - pad.t - pad.b)]);
+          return (
+            <g style={`color: ${tankColor[tank.id]}`}>
+              <polyline points={pts.map((q) => q.join(',')).join(' ')} />
+              {pts.map((q) => <circle cx={q[0]} cy={q[1]} r="4" />)}
+            </g>
+          );
+        })}
+      </svg>
+      <p class="demo-caption">{p.id === 'p1' ? s.p1Caption : s.p2Caption}</p>
+    </div>
+  ))}
+  <p class="demo-note">{s.note}</p>
+</figure>
+
+<style>
+  .tanks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem; margin-top: 1.25rem; }
+  [data-part-panel='p2'] .tanks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tank { display: grid; justify-items: center; gap: 0.35rem; text-align: center; }
+  .glass {
+    position: relative; width: 100%; max-width: 7.5rem; aspect-ratio: 4 / 3;
+    border: 1.5px solid var(--slate); border-top-color: transparent; border-radius: 2px 2px 8px 8px; overflow: hidden;
+  }
+  /* Water: clear and faintly blue, clouding toward a muddy brown as turbidity rises. */
+  .water {
+    position: absolute; inset: 14% 0 0 0;
+    background: color-mix(in srgb, #8a6a3a calc(var(--murk) * 85%), color-mix(in srgb, var(--homo) 14%, transparent));
+    transition: background 1s ease;
+  }
+  .tank-name { font-size: 0.875rem; }
+  .tank-name::before { content: ''; display: inline-block; width: 0.6em; height: 0.6em; border-radius: 50%; margin-right: 0.4em; background: var(--dot); }
+  .ntu { font-size: 0.8125rem; color: var(--slate); font-variant-numeric: tabular-nums; }
+  .ntu b { font-weight: 400; color: var(--ink); }
+  .times { margin-top: 1rem; }
+  .play { margin-left: 0.4rem; }
+
+  .chart { display: block; width: 100%; height: auto; margin-top: 1rem; overflow: visible; }
+  .grid line { stroke: var(--rule); stroke-width: 1; }
+  .grid text, .axis { fill: var(--slate); font: 300 12px var(--font-sans); }
+  .chart polyline { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+  .chart circle { fill: currentColor; }
+  .now { stroke: var(--slate); stroke-dasharray: 3 4; transition: transform 0.6s ease; }
+  @media (max-width: 560px) {
+    .tanks { gap: 0.5rem; }
+    .tank-name { font-size: 0.75rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .water, .now { transition: none; } }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-oyster]')) {
+    const panels = root.querySelectorAll<HTMLElement>('[data-part-panel]');
+    const partButtons = root.querySelectorAll<HTMLButtonElement>('[data-set-part]');
+    let timer: number | undefined;
+
+    const setTime = (panel: HTMLElement, i: number) => {
+      panel.querySelectorAll<HTMLButtonElement>('[data-time]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.time) === i)));
+      panel.querySelectorAll<HTMLElement>('.tank').forEach((tank) => {
+        const ntu: number[] = JSON.parse(tank.dataset.ntu!);
+        const murk: number[] = JSON.parse(tank.dataset.murk!);
+        tank.style.setProperty('--murk', String(murk[i]));
+        tank.querySelector('.ntu b')!.textContent = String(ntu[i]);
+      });
+      // Move the dashed "now" line to the selected time.
+      const now = panel.querySelector<SVGLineElement>('[data-now]')!;
+      const count = panel.querySelectorAll('[data-time]').length;
+      const svg = now.ownerSVGElement!;
+      const width = svg.viewBox.baseVal.width - 46 - 16;
+      now.style.transform = `translateX(${(i / (count - 1)) * width}px)`;
+    };
+
+    panels.forEach((panel) => {
+      panel.querySelectorAll<HTMLButtonElement>('[data-time]').forEach((b) =>
+        b.addEventListener('click', () => { clearInterval(timer); setTime(panel, Number(b.dataset.time)); }),
+      );
+      panel.querySelector<HTMLButtonElement>('[data-play]')!.addEventListener('click', () => {
+        clearInterval(timer);
+        let i = 0;
+        setTime(panel, 0);
+        timer = window.setInterval(() => {
+          i += 1;
+          if (i > 2) return clearInterval(timer);
+          setTime(panel, i);
+        }, 1300);
+      });
+    });
+
+    partButtons.forEach((b) =>
+      b.addEventListener('click', () => {
+        clearInterval(timer);
+        partButtons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        panels.forEach((p) => (p.hidden = p.dataset.partPanel !== b.dataset.setPart));
+      }),
+    );
+  }
+</script>

@@ -1,0 +1,149 @@
+---
+import { Image } from 'astro:assets';
+import { ui, href, threads, type Lang } from '../i18n';
+import type { Project } from '../lib/content';
+interface Props { lang: Lang; projects: Project[] }
+const { lang, projects } = Astro.props;
+const t = ui[lang];
+// If the last row would hold a single card, lay that card out wide instead.
+const rest = projects.filter((p) => !p.data.featured).length;
+const codaIndex = rest % 3 === 1 ? projects.length - 1 : -1;
+const counts = Object.fromEntries(threads.map((th) => [th, projects.filter((p) => p.data.threads.includes(th)).length]));
+---
+<section class="work" id="work">
+  <span class="glow lumo" style="--size: 36rem; right: -12rem; top: -10rem" aria-hidden="true"></span>
+  <div class="wrap inner">
+  <div class="head">
+    <div class="title">
+      <h2 class="section-title">{t.workTitle}</h2>
+      <p class="intro">{t.workIntro}</p>
+    </div>
+    <div class="filters ui" role="group" aria-label={t.filterLabel}>
+      <button type="button" data-filter="all" aria-pressed="true">{t.all}</button>
+      {threads.filter((th) => counts[th] > 0).map((th) => (
+        <button type="button" data-filter={th} aria-pressed="false">
+          {t.threads[th]} <span class="count">{counts[th]}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <ul class="grid">
+    {projects.map((p, i) => (
+      <li class:list={['item', { featured: p.data.featured, coda: i === codaIndex }]} data-reveal data-threads={p.data.threads.join(' ')} style={`view-transition-name: work-${i}`}>
+        <a href={href(lang, `/work/${p.slug}/`)}>
+          <div class="media">
+            {p.data.cover ? (
+              <Image src={p.data.cover} alt={p.data.coverAlt} widths={[480, 800, 1200]} sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 640px" loading={i < 2 ? 'eager' : 'lazy'} />
+            ) : (
+              <div class="placeholder" aria-hidden="true" />
+            )}
+          </div>
+          {p.data.art && (
+            <p class="credit"><cite>{p.data.art.title}</cite> · {p.data.art.artist}{p.data.art.year && `, ${p.data.art.year}`}</p>
+          )}
+          <h3>{p.data.title}</h3>
+        </a>
+        <p class="summary">{p.data.summary}</p>
+        <p class="meta ui">
+          {p.data.threads.map((th) => <span class={`thread t-${th}`}>{t.threads[th]}</span>)}
+          {p.data.year && <span class="year">{p.data.year}</span>}
+        </p>
+      </li>
+    ))}
+  </ul>
+  </div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>('.work');
+  if (root) {
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-filter]');
+    const items = root.querySelectorAll<HTMLElement>('.item');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    const apply = (f: string) => {
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === f)));
+      items.forEach((it) => (it.hidden = f !== 'all' && !it.dataset.threads!.split(' ').includes(f)));
+    };
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        const f = b.dataset.filter!;
+        const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+        if (doc.startViewTransition && !reduce.matches) doc.startViewTransition(() => apply(f));
+        else apply(f);
+      }),
+    );
+  }
+</script>
+
+<style>
+  .work {
+    position: relative; overflow: hidden; margin-top: var(--section);
+    background: var(--band); color: var(--band-ink);
+    padding: clamp(4rem, 10vw, 8rem) 0;
+  }
+  .inner { position: relative; z-index: 1; }
+  .intro { color: var(--band-slate); font-weight: 300; font-size: var(--step-1); line-height: 1.35; max-width: 32ch; margin: 1.25rem 0 0; }
+  .head { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 1.5rem 3rem; margin-bottom: clamp(2.5rem, 6vw, 4.5rem); }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .filters button {
+    font: inherit; cursor: pointer; color: var(--band-slate);
+    background: transparent; border: 1px solid var(--band-rule); border-radius: 999px; padding: 0.5em 1em;
+  }
+  .filters button:hover { color: var(--band-ink); border-color: var(--band-slate); }
+  .filters button[aria-pressed='true'] { background: var(--band-ink); border-color: var(--band-ink); color: var(--band); }
+  .count { opacity: 0.6; font-variant-numeric: tabular-nums; margin-left: 0.2em; }
+
+  .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(1rem, 2vw, 1.5rem); }
+
+  /* Cards: cream panels on the ink band */
+  .item {
+    grid-column: span 4; background: var(--paper); color: var(--ink);
+    border-radius: 6px; padding: 0.6rem 0.6rem 1.4rem;
+    display: flex; flex-direction: column;
+  }
+  .item.featured { grid-column: span 6; }
+  .item[hidden] { display: none; }
+  .item > :not(a) { padding-inline: 0.6rem; }
+  .item a h3, .item a .credit { padding-inline: 0.6rem; }
+  .credit { font-size: var(--step--1); line-height: 1.4; color: var(--slate); margin: -0.4rem 0 0.9rem; }
+  .credit cite { font-style: italic; }
+
+  .item a { text-decoration: none; display: block; }
+  .media { aspect-ratio: 4 / 3; overflow: hidden; border-radius: 3px; background: var(--paper-2); margin-bottom: 1.25rem; }
+  .featured .media { aspect-ratio: 5 / 4; }
+  .media :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .item a:hover .media :global(img) { transform: scale(1.03); }
+  .placeholder { width: 100%; height: 100%; }
+
+  h3 { font-size: var(--step-1); font-weight: 400; letter-spacing: -0.015em; line-height: 1.2; margin-bottom: 0.6rem; }
+  .featured h3 { font-size: var(--step-2); font-weight: 300; letter-spacing: -0.025em; }
+  .item a:hover { color: inherit; }
+  .item a:hover h3 { color: var(--homo); }
+  .summary { color: var(--slate); font-size: 0.975rem; line-height: 1.5; max-width: 48ch; margin-bottom: 1rem; }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; color: var(--slate); margin: auto 0 0; }
+  .thread::before { content: ''; display: inline-block; width: 0.5em; height: 0.5em; border-radius: 50%; margin-right: 0.4em; background: currentColor; vertical-align: 0.05em; }
+  .t-research::before { background: var(--homo); }
+  .t-communication::before { background: var(--lumo); }
+  .t-leadership::before { background: var(--ink); }
+  .t-design::before { background: transparent; border: 1px solid var(--slate); }
+  .year { font-variant-numeric: tabular-nums; }
+
+  .item.coda { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: clamp(1.25rem, 2.5vw, 2rem); grid-template-rows: 1fr auto auto auto auto; }
+  .coda > a { display: contents; }
+  .coda .media { grid-column: 1 / 7; grid-row: 1 / 6; aspect-ratio: 16 / 10; margin-bottom: 0; }
+  .coda .credit, .coda h3, .coda .summary, .coda .meta { grid-column: 7 / 12; }
+  .coda .credit { grid-row: 2; margin-top: 0; } .coda h3 { grid-row: 3; } .coda .summary { grid-row: 4; } .coda .meta { grid-row: 5; margin: 0; }
+  .coda h3 { font-size: var(--step-2); font-weight: 300; letter-spacing: -0.025em; }
+
+  @media (max-width: 1000px) {
+    .item, .item.featured { grid-column: span 6; }
+    .item.coda { display: flex; grid-column: 1 / -1; }
+    .coda > a { display: block; }
+    .coda .media { margin-bottom: 1.25rem; }
+  }
+  @media (max-width: 640px) {
+    .item, .item.featured { grid-column: 1 / -1; }
+  }
+</style>

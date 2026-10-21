@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+.claude/
+
+# Original full-size video (183 MB, over GitHub's 100 MB limit); not used by the site.
+src/assets/work/space-factor.mp4
+
+# Reference documents used to write the pages (articles, abstracts, reports). Kept local only:
+# the site doesn't use them, and some are copyrighted journal versions.
+src/docs/*.pdf

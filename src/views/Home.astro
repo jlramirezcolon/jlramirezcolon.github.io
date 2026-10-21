@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import Hero from '../components/Hero.astro';
+import WorkGrid from '../components/WorkGrid.astro';
+import NewsList from '../components/NewsList.astro';
+import { getProjects, getNews } from '../lib/content';
+import { ui, href, type Lang } from '../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang];
+const projects = await getProjects(lang);
+const news = (await getNews(lang)).slice(0, 5);
+---
+<Base lang={lang}>
+  <Hero lang={lang} />
+
+  <WorkGrid lang={lang} projects={projects} />
+
+  <section class="news wrap" id="news">
+    <div class="side" data-reveal>
+      <h2 class="section-title">{t.newsTitle}</h2>
+      <a class="button" href={href(lang, '/news/')}>{t.allNews} →</a>
+    </div>
+    <NewsList lang={lang} items={news} />
+  </section>
+</Base>
+
+<style>
+  /* News */
+  .news {
+    padding-top: var(--section);
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.5rem; row-gap: 2rem;
+  }
+  .side { grid-column: 1 / 5; display: flex; flex-direction: column; gap: 1.5rem; align-items: start; }
+  .news :global(.news-list) { grid-column: 5 / 13; }
+
+  @media (max-width: 860px) {
+    .side, .news :global(.news-list) { grid-column: 1 / -1; }
+  }
+</style>

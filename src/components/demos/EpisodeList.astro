@@ -1,0 +1,79 @@
+---
+// Lunes de Ciencia Gufiá: the six episodes, with topics taken from each post's caption on @cetmpr.
+// Instagram's player only loads when a visitor asks for it (no third-party content on page load).
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo.episodes;
+const episodes = [
+  { id: 'DA0408XPbjC', en: 'The macaques of Cayo Santiago: how the monkeys changed their social behavior after Hurricane María.', es: 'Los macacos del Cayo Santiago: cómo cambiaron su comportamiento social tras el huracán María.' },
+  { id: 'DBYzZW_xzs9', en: 'Arecibo and the Wow! signal: how observations from the Arecibo radio telescope may help explain one of astronomy’s great puzzles of the past 50 years.', es: 'Arecibo y la señal Wow!: cómo observaciones del radiotelescopio de Arecibo podrían ayudar a explicar uno de los grandes enigmas astronómicos de los últimos 50 años.' },
+  { id: 'DB82udwxuKO', en: 'Elkhorn coral in Vega Baja: a community effort of more than 10 years that rescued an endangered reef.', es: 'El coral de cuerno de alce en Vega Baja: un esfuerzo comunitario de más de 10 años que rescató un arrecife en peligro.' },
+  { id: 'DChCuipx4ml', en: 'New tools against malaria: seven compounds studied by Puerto Rican scientists that could help prevent its transmission.', es: 'Nuevas armas contra la malaria: siete compuestos estudiados por científicos puertorriqueños que podrían ayudar a prevenir su transmisión.' },
+  { id: 'DDE-kU9v5tx', en: 'From the sea against COVID-19: a natural compound from cyanobacteria in Jobos Bay, Salinas, studied as a possible treatment.', es: 'Desde el mar contra el COVID-19: un compuesto natural de cianobacterias de la Bahía de Jobos, en Salinas, estudiado como posible tratamiento.' },
+  { id: 'DDpIetdRXY-', en: 'A biosensor for a marine toxin: a device developed in Puerto Rico to detect a toxin associated with neurodegenerative diseases.', es: 'Un biosensor para una toxina marina: un dispositivo desarrollado en Puerto Rico para detectar una toxina asociada a enfermedades neurodegenerativas.' },
+];
+---
+<ol class="episodes" data-episodes role="list">
+  {episodes.map((ep, i) => (
+    <li class="ep">
+      <span class="label">{t.episode} {i + 1}</span>
+      <p class="topic">{ep[lang]}</p>
+      <div class="actions">
+        <button type="button" class="button" data-watch={ep.id} hidden>{t.watch}</button>
+        <a class="link" href={`https://www.instagram.com/reel/${ep.id}/`} target="_blank" rel="noopener">{t.open} ↗</a>
+      </div>
+    </li>
+  ))}
+</ol>
+<dialog class="viewer" data-viewer aria-label={t.player}>
+  <div class="bar">
+    <span class="label" data-viewer-title></span>
+    <button type="button" class="close" data-close aria-label={t.close}>×</button>
+  </div>
+  <div class="frame" data-frame></div>
+</dialog>
+
+<style>
+  .episodes { list-style: none; margin: 2rem 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .ep { margin: 0; padding: 1.1rem 1.1rem 1.25rem; border: 1px solid var(--rule); border-radius: 8px; display: flex; flex-direction: column; gap: 0.6rem; }
+  .topic { margin: 0; font-size: 1rem; line-height: 1.45; flex: 1; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.1rem; }
+  .link { font-size: var(--step--1); color: var(--slate); text-decoration: none; }
+  .link:hover { color: var(--homo); }
+  /* Player window: tall and centered, sized for vertical reels. */
+  .viewer { width: min(440px, 94vw); max-height: 94vh; padding: 0; border: 0; border-radius: 10px; background: var(--paper); color: var(--ink); overflow: hidden; }
+  .viewer::backdrop { background: rgba(10, 10, 20, 0.78); }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.6rem 0.6rem 0.6rem 1rem; }
+  .close { font: inherit; font-size: 1.3rem; cursor: pointer; width: 2.2rem; height: 2.2rem; border-radius: 999px; border: 1px solid var(--rule); background: transparent; color: var(--ink); }
+  .close:hover { border-color: var(--slate); }
+  /* :global because the iframe is created by the script and has no scoped attribute. */
+  .frame :global(iframe) { display: block; width: 100%; height: min(820px, calc(94vh - 3.4rem)); border: 0; background: #fff; }
+  @media (max-width: 640px) { .episodes { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  // "Watch here" needs JavaScript, so the buttons only appear when it runs. The player loads in a
+  // window over the page and is removed on close, which stops the video.
+  for (const root of document.querySelectorAll<HTMLElement>('[data-episodes]')) {
+    const dialog = root.nextElementSibling as HTMLDialogElement;
+    const frame = dialog.querySelector<HTMLElement>('[data-frame]')!;
+    const title = dialog.querySelector<HTMLElement>('[data-viewer-title]')!;
+    root.querySelectorAll<HTMLButtonElement>('[data-watch]').forEach((b) => {
+      b.hidden = false;
+      b.addEventListener('click', () => {
+        const li = b.closest('li')!;
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.instagram.com/reel/${b.dataset.watch}/embed/`;
+        iframe.title = li.querySelector('.topic')!.textContent ?? '';
+        iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+        title.textContent = li.querySelector('.label')!.textContent ?? '';
+        frame.replaceChildren(iframe);
+        dialog.showModal();
+      });
+    });
+    dialog.querySelector('[data-close]')!.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => frame.replaceChildren());
+  }
+</script>

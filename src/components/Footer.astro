@@ -1,0 +1,45 @@
+---
+import { site } from '../site';
+import { ui, type Lang } from '../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang];
+---
+<footer class="site-footer" id="contact">
+  <span class="glow homo" style="--size: 34rem; right: -10rem; top: -12rem" aria-hidden="true"></span>
+  <div class="wrap inner">
+    <p class="label">{t.contactLabel}</p>
+    <p class="lead">{t.contactLead}</p>
+    <a class="email" href={`mailto:${site.email}`}>{site.email}</a>
+    <div class="bottom ui">
+      <ul>
+        {site.socials.map((s) => <li><a href={s.url} target="_blank" rel="noopener">{s.label}</a></li>)}
+      </ul>
+      <span>© {new Date().getFullYear()} {site.name}</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    position: relative; overflow: hidden; margin-top: var(--section);
+    background: var(--band); color: var(--band-ink);
+  }
+  .inner { position: relative; z-index: 1; padding-top: clamp(4rem, 10vw, 8rem); padding-bottom: 2rem; }
+  .label { color: var(--band-slate); margin-bottom: 1.5rem; }
+  .lead { max-width: 30ch; font-size: var(--step-2); font-weight: 300; line-height: 1.25; letter-spacing: -0.015em; margin-bottom: 2.5rem; }
+  .email {
+    display: inline-block; font-weight: 300;
+    font-size: clamp(1.6rem, 5.6vw, 4.75rem); letter-spacing: -0.035em; line-height: 1.05;
+    text-decoration: none; overflow-wrap: anywhere;
+    border-bottom: 1px solid var(--band-rule); padding-bottom: 0.08em;
+  }
+  .email:hover { color: inherit; border-color: var(--lumo); }
+  .bottom {
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    margin-top: clamp(4rem, 9vw, 7rem); padding-top: 1.25rem; border-top: 1px solid var(--band-rule); color: var(--band-slate);
+  }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1.4rem; }
+  a { text-decoration: none; }
+  .bottom a:hover { color: var(--band-ink); }
+</style>

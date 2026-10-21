@@ -1,0 +1,6 @@
+! wB97X-D3 def2-TZVP TightSCF
+%output
+  Print[P_MOs] 1
+  Print[P_Basis] 2
+end
+* xyzfile 0 1 glycine.xyz

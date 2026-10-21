@@ -1,0 +1,88 @@
+---
+import { site } from '../site';
+import { ui, href, otherLangPath, type Lang } from '../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang];
+const path = Astro.url.pathname;
+const isActive = (p: string) => path.startsWith(href(lang, p));
+---
+<header class="site-header">
+  <div class="wrap inner">
+  <a class="home" href={href(lang, '/')}>{site.shortName}</a>
+  <nav aria-label="Main">
+    <a href={href(lang, '/#work')}>{t.navWork}</a>
+    <a href={href(lang, '/news/')} aria-current={isActive('/news') ? 'page' : undefined}>{t.navNews}</a>
+    <a href={href(lang, '/about/')} aria-current={isActive('/about') ? 'page' : undefined}>{t.navAbout}</a>
+    <a href={site.cv} target="_blank" rel="noopener">{t.cv}</a>
+    <a class="lang" href={otherLangPath(lang, path)} hreflang={lang === 'en' ? 'es' : 'en'} aria-label={t.otherLangLabel}>
+      {t.otherLang}
+    </a>
+    <button class="theme" type="button" aria-label={t.themeLabel} aria-pressed="false" data-theme-toggle>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" /></svg>
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2" />
+        <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" />
+      </svg>
+    </button>
+  </nav>
+  </div>
+</header>
+
+<style>
+  .site-header { border-bottom: 1px solid var(--rule); position: relative; z-index: 5; }
+  .inner {
+    display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;
+    gap: 0.6rem 2rem; padding-top: 1.15rem; padding-bottom: 1.15rem; font-size: 0.95rem;
+  }
+  .home { font-weight: 500; text-decoration: none; letter-spacing: -0.01em; }
+  nav { display: flex; gap: 0.4rem 1.75rem; flex-wrap: wrap; }
+  nav a { text-decoration: none; }
+  nav a:hover, nav a[aria-current='page'] { color: var(--homo); }
+  .lang { color: var(--slate); }
+
+  /* Light/dark toggle: the moon shows in light mode, the sun in dark mode. */
+  .theme {
+    all: unset; cursor: pointer; display: inline-grid; place-items: center; align-self: center;
+    width: 1.9rem; height: 1.9rem; margin: -0.4rem -0.35rem; border-radius: 50%; color: var(--ink);
+  }
+  .theme:hover { color: var(--homo); }
+  .theme:focus-visible { outline: 2px solid var(--homo); outline-offset: 2px; }
+  .theme svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .sun { display: none; }
+  :global(:root[data-theme='dark']) .sun { display: block; }
+  :global(:root[data-theme='dark']) .moon { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .sun { display: block; }
+    :global(:root:not([data-theme='light'])) .moon { display: none; }
+  }
+  @media (max-width: 560px) {
+    .inner { font-size: 0.9rem; }
+    nav { gap: 0.4rem 1.1rem; }
+  }
+</style>
+
+<script>
+  // Flip between light and dark, remember the choice, and tell canvases to recolor.
+  const button = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  if (button) {
+    const root = document.documentElement;
+    const system = matchMedia('(prefers-color-scheme: dark)');
+    const current = () => root.dataset.theme ?? (system.matches ? 'dark' : 'light');
+    const sync = () => {
+      const dark = current() === 'dark';
+      button.setAttribute('aria-pressed', String(dark));
+      const bg = getComputedStyle(root).getPropertyValue('--paper').trim();
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', bg));
+    };
+    button.addEventListener('click', () => {
+      const next = current() === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      try { localStorage.setItem('theme', next); } catch {}
+      sync();
+      document.dispatchEvent(new CustomEvent('themechange', { detail: next }));
+    });
+    system.addEventListener('change', sync);
+    sync();
+  }
+</script>

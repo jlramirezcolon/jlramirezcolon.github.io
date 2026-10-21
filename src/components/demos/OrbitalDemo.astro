@@ -1,0 +1,263 @@
+---
+// LUMOS: glycine's frontier orbitals in 3D. Geometry: the owner's glycine zwitterion (src/docs/glycine-zwitterion.mol2).
+// Orbitals: ωB97X-D3/def2-TZVP single point in ORCA, evaluated on a grid and contoured at ±0.05 a.u.
+// (src/docs/orbitals/ has the input and the script that produced src/data/glycine-orbitals.json).
+import { ui, type Lang } from '../../i18n';
+import dataUrl from '../../data/glycine-orbitals.json?url';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang];
+const o = t.demo.orbital;
+---
+<figure class="demo orbital" data-orbital data-state="homo" data-src={dataUrl} data-alt-homo={o.homoAlt} data-alt-lumo={o.lumoAlt}>
+  <div class="demo-head">
+    <span class="label">{t.demo.label}</span>
+    <h3>{o.title}</h3>
+    <p>{o.intro}</p>
+  </div>
+  <div class="stage">
+    <canvas role="img" aria-label={o.homoAlt}></canvas>
+    <span class="hint label" aria-hidden="true">{o.hint}</span>
+  </div>
+  <figcaption>
+    <div class="levels ui" role="group" aria-label="HOMO / LUMO">
+      <button type="button" data-level="lumo" aria-pressed="false">
+        <span class="bar"></span><span class="lbl">LUMO</span>
+      </button>
+      <span class="gap" aria-hidden="true"><span class="arrow"></span><span>{t.gap}</span></span>
+      <button type="button" data-level="homo" aria-pressed="true">
+        <span class="bar"></span><span class="lbl">HOMO</span>
+      </button>
+    </div>
+    <div class="captions">
+      <p class="state-text" aria-live="polite">
+        <span data-for="homo">{t.homo}</span>
+        <span data-for="lumo" hidden>{t.lumo}</span>
+      </p>
+      <p class="caption">{t.orbitalCaption} <span class="note">{t.orbitalNote}</span></p>
+    </div>
+  </figcaption>
+</figure>
+
+<style>
+  .stage { position: relative; aspect-ratio: 4 / 3; width: 100%; border-radius: 6px; background: var(--paper-2); overflow: hidden; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+  canvas:active { cursor: grabbing; }
+  .hint { position: absolute; right: 0.8rem; bottom: 0.7rem; transition: opacity 0.4s; }
+  .touched .hint { opacity: 0; }
+
+  figcaption { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: start; margin-top: 1rem; }
+  /* Tiny energy-level diagram; the two levels are the buttons */
+  .levels { display: grid; grid-template-rows: auto auto auto; width: 7.5rem; }
+  .levels button {
+    all: unset; cursor: pointer; display: grid; grid-template-columns: 3.4rem auto;
+    align-items: center; gap: 0.6rem; padding: 0.3rem 0; color: var(--slate);
+  }
+  .levels button:focus-visible { outline: 2px solid var(--homo); outline-offset: 2px; }
+  .bar { height: 3px; border-radius: 2px; background: var(--rule); transition: background 0.3s; }
+  .levels button[aria-pressed='true'] { color: var(--ink); }
+  [data-level='homo'][aria-pressed='true'] .bar { background: var(--homo); }
+  [data-level='lumo'][aria-pressed='true'] .bar { background: var(--lumo); }
+  .levels button:hover .bar { background: var(--slate); }
+  .gap { display: grid; grid-template-columns: 3.4rem auto; gap: 0.6rem; align-items: center; color: var(--slate); font-size: 0.75rem; }
+  .arrow { justify-self: center; width: 1px; height: 2.2rem; background: var(--slate); position: relative; }
+  .arrow::before, .arrow::after { content: ''; position: absolute; left: -3px; border: 3.5px solid transparent; }
+  .arrow::before { top: -2px; border-bottom-color: var(--slate); border-top: 0; }
+  .arrow::after { bottom: -2px; border-top-color: var(--slate); border-bottom: 0; }
+
+  .captions { font-size: 0.95rem; line-height: 1.5; max-width: 44ch; }
+  .captions p { margin: 0 0 0.5rem; }
+  .state-text { min-height: 3em; }
+  .caption { color: var(--slate); }
+  .note { font-style: italic; }
+  @media (max-width: 480px) { figcaption { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+  import * as THREE from 'three';
+
+  type Lobe = { v: number[]; f: number[] };
+  type Data = { atoms: { el: string; p: [number, number, number] }[]; homo: { pos: Lobe; neg: Lobe }; lumo: { pos: Lobe; neg: Lobe } };
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-orbital]')) init(root);
+
+  async function init(root: HTMLElement) {
+    const canvas = root.querySelector('canvas')!;
+    const stage = canvas.parentElement!;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    let renderer: THREE.WebGLRenderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch { return; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, 4 / 3, 0.1, 100);
+    camera.position.set(0, 0, 16);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 2.1));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(4, 6, 8);
+    scene.add(key);
+
+    const data: Data = await fetch(root.dataset.src!).then((r) => r.json());
+    const mol = new THREE.Group();
+    scene.add(mol);
+    const center = new THREE.Vector3();
+    data.atoms.forEach((a) => center.add(new THREE.Vector3(...a.p)));
+    center.divideScalar(data.atoms.length);
+    const at = (p: [number, number, number]) => new THREE.Vector3(...p).sub(center);
+
+    // Atoms and bonds
+    const mats = {
+      heavy: new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+      light: new THREE.MeshStandardMaterial({ roughness: 0.6 }),
+      n: new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+      o: new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+      bond: new THREE.MeshStandardMaterial({ roughness: 0.6 }),
+    };
+    const sphere = new THREE.SphereGeometry(1, 36, 24);
+    const radius: Record<string, number> = { C: 0.3, N: 0.3, O: 0.3, H: 0.17 };
+    const matFor = (el: string) => (el === 'H' ? mats.light : el === 'N' ? mats.n : el === 'O' ? mats.o : mats.heavy);
+    const P = data.atoms.map((a) => at(a.p));
+    data.atoms.forEach((a, i) => {
+      const m = new THREE.Mesh(sphere, matFor(a.el));
+      m.scale.setScalar(radius[a.el] ?? 0.3);
+      m.position.copy(P[i]);
+      mol.add(m);
+    });
+    const covalent: Record<string, number> = { H: 0.31, C: 0.76, N: 0.71, O: 0.66 };
+    const cyl = (a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, a.distanceTo(b), 14), mat);
+      m.position.copy(a).add(b).multiplyScalar(0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      mol.add(m);
+    };
+    const bonded = new Set<string>();
+    for (let i = 0; i < P.length; i++)
+      for (let j = i + 1; j < P.length; j++) {
+        const d = P[i].distanceTo(P[j]);
+        if (d < 1.2 * ((covalent[data.atoms[i].el] ?? 0.7) + (covalent[data.atoms[j].el] ?? 0.7))) {
+          cyl(P[i], P[j], 0.07, mats.bond);
+          bonded.add(`${i}-${j}`);
+        }
+      }
+    // Intramolecular hydrogen bond (N–H···O), drawn as a dashed line of short segments.
+    for (let i = 0; i < P.length; i++) {
+      if (data.atoms[i].el !== 'H') continue;
+      for (let j = 0; j < P.length; j++) {
+        if (data.atoms[j].el !== 'O' || bonded.has(`${Math.min(i, j)}-${Math.max(i, j)}`)) continue;
+        const d = P[i].distanceTo(P[j]);
+        if (d > 1.5 && d < 2.4) {
+          const steps = 6;
+          for (let k = 0; k < steps; k++) {
+            const a = P[i].clone().lerp(P[j], (k + 0.2) / steps), b = P[i].clone().lerp(P[j], (k + 0.65) / steps);
+            cyl(a, b, 0.035, mats.light);
+          }
+        }
+      }
+    }
+
+    // Orbital surfaces: one phase cobalt, the other amber.
+    const lobeMat = () => new THREE.MeshStandardMaterial({ transparent: true, opacity: 0, roughness: 0.35, side: THREE.DoubleSide, depthWrite: false });
+    const build = (lobe: Lobe, mat: THREE.Material) => {
+      const g = new THREE.BufferGeometry();
+      const v = new Float32Array(lobe.v);
+      for (let k = 0; k < v.length; k += 3) { v[k] -= center.x; v[k + 1] -= center.y; v[k + 2] -= center.z; }
+      g.setAttribute('position', new THREE.BufferAttribute(v, 3));
+      g.setIndex(lobe.f);
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, mat);
+      m.renderOrder = 2;
+      mol.add(m);
+    };
+    const orbitals = {
+      homo: { pos: lobeMat(), neg: lobeMat(), current: 0, target: 1 },
+      lumo: { pos: lobeMat(), neg: lobeMat(), current: 0, target: 0 },
+    };
+    for (const k of ['homo', 'lumo'] as const) { build(data[k].pos, orbitals[k].pos); build(data[k].neg, orbitals[k].neg); }
+
+    function applyColors() {
+      mats.heavy.color.set(css('--ink'));
+      mats.light.color.set(css('--slate'));
+      mats.bond.color.set(css('--slate'));
+      mats.n.color.set(css('--ink'));
+      mats.o.color.set(css('--ink'));
+      for (const k of ['homo', 'lumo'] as const) { orbitals[k].pos.color.set(css('--homo')); orbitals[k].neg.color.set(css('--lumo')); }
+    }
+    applyColors();
+    const recolor = () => { applyColors(); wake(); };
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', recolor);
+    document.addEventListener('themechange', recolor);
+
+    // Start from the same view as the reference renders (the .mol2 frame: amine on the left,
+    // carboxylate on the right, hydrogen bond on top), tilted slightly so it reads as 3D.
+    mol.rotation.set(0.12, -0.2, 0);
+
+    // HOMO / LUMO
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-level]');
+    const texts = root.querySelectorAll<HTMLElement>('[data-for]');
+    buttons.forEach((b) => b.addEventListener('click', () => {
+      const state = b.dataset.level as 'homo' | 'lumo';
+      root.dataset.state = state;
+      orbitals.homo.target = state === 'homo' ? 1 : 0;
+      orbitals.lumo.target = state === 'lumo' ? 1 : 0;
+      buttons.forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.level === state)));
+      texts.forEach((el) => (el.hidden = el.dataset.for !== state));
+      canvas.setAttribute('aria-label', root.dataset[state === 'homo' ? 'altHomo' : 'altLumo'] ?? '');
+      if (reduce.matches) { orbitals.homo.current = orbitals.homo.target; orbitals.lumo.current = orbitals.lumo.target; }
+      wake();
+    }));
+
+    // Drag to rotate
+    let dragging = false, lastX = 0, lastY = 0, idle = true;
+    canvas.addEventListener('pointerdown', (e) => { dragging = true; idle = false; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); stage.classList.add('touched'); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      mol.rotation.y += (e.clientX - lastX) * 0.008;
+      mol.rotation.x += (e.clientY - lastY) * 0.008;
+      lastX = e.clientX; lastY = e.clientY;
+      wake();
+    });
+    const end = () => { dragging = false; };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+
+    function resize() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.position.z = w / h < 1 ? 14.5 : 11.5;
+      camera.updateProjectionMatrix();
+      draw();
+    }
+    new ResizeObserver(resize).observe(stage);
+
+    let visible = false, running = false;
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) wake(); }).observe(stage);
+    function wake() { if (!running) { running = true; requestAnimationFrame(frame); } }
+    function draw() {
+      for (const k of ['homo', 'lumo'] as const) {
+        const op = 0.62 * orbitals[k].current;
+        orbitals[k].pos.opacity = op; orbitals[k].neg.opacity = op;
+        orbitals[k].pos.visible = orbitals[k].neg.visible = op > 0.01;
+      }
+      renderer.render(scene, camera);
+    }
+    function frame() {
+      let busy = false;
+      for (const o of Object.values(orbitals)) {
+        const d = o.target - o.current;
+        if (Math.abs(d) > 0.002) { o.current += d * 0.1; busy = true; } else o.current = o.target;
+      }
+      const spinning = idle && !reduce.matches;
+      // Gentle sway around the reference view until the visitor takes over.
+      if (spinning) mol.rotation.y = -0.2 + 0.55 * Math.sin(performance.now() / 2600);
+      draw();
+      running = visible && (busy || spinning || dragging);
+      if (running) requestAnimationFrame(frame);
+    }
+    if (reduce.matches) orbitals.homo.current = 1;
+    resize();
+    wake();
+  }
+</script>

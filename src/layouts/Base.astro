@@ -1,0 +1,67 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { site } from '../site';
+import { ui, otherLangPath, type Lang } from '../i18n';
+
+interface Props { lang: Lang; title?: string; description?: string; image?: string }
+const { lang, title, description, image } = Astro.props;
+const t = ui[lang];
+const fullTitle = title ? `${title} | ${site.name}` : `${site.name}: ${t.tagline}`;
+const desc = description ?? t.heroIntro;
+const path = Astro.url.pathname;
+const enPath = lang === 'en' ? path : otherLangPath('es', path);
+const esPath = lang === 'es' ? path : otherLangPath('en', path);
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" hreflang="en" href={new URL(enPath, Astro.site)} />
+    <link rel="alternate" hreflang="es" href={new URL(esPath, Astro.site)} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:type" content="website" />
+    {image && <meta property="og:image" content={new URL(image, Astro.site)} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap"
+    />
+    <meta name="theme-color" content="#f6f2eb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#12121b" media="(prefers-color-scheme: dark)" />
+    <script is:inline>
+      // Apply a saved light/dark choice before first paint (the header toggle stores it).
+      document.documentElement.classList.add('js');
+      try {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip ui" href="#main">Skip to content</a>
+    <Header lang={lang} />
+    <main id="main"><slot /></main>
+    <Footer lang={lang} />
+    <script>
+      // Fade elements marked data-reveal in as they enter the viewport.
+      const io = new IntersectionObserver(
+        (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }),
+        { rootMargin: '0px 0px -8% 0px' },
+      );
+      document.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
+    </script>
+    <style>
+      .skip { position: absolute; left: -9999px; top: 0; }
+      .skip:focus { left: var(--gutter); top: 0.75rem; background: var(--paper); padding: 0.4em 0.8em; z-index: 10; }
+    </style>
+  </body>
+</html>

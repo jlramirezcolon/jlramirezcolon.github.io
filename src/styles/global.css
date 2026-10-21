@@ -1,0 +1,215 @@
+/* ---------------------------------------------------------------
+   Design tokens
+   Warm cream paper, one deep ink for all text, and two orbital
+   phase colors (cobalt for HOMO, amber for LUMO) as the only accents.
+   The accents appear mostly as soft, blurred glows, so photos and
+   figures carry the color.
+---------------------------------------------------------------- */
+:root {
+  --paper: #f6f2eb;
+  --paper-2: #ece6dc;
+  --ink: #1f2140;
+  --slate: #6b6a7f;
+  --rule: #d9d1c4;
+  --homo: #2b4fd8;
+  --homo-pale: #b9c6f4;
+  --lumo: #e3a21a;
+  --lumo-pale: #f5dca3;
+  /* Inverted bands (work section, footer) */
+  --band: #1f2140;
+  --band-ink: #f6f2eb;
+  --band-slate: #a9a8bd;
+  --band-rule: #3a3c5c;
+  --glow-strength: 0.55;
+
+  /* Helvetica Neue ships with Apple devices. Elsewhere, Inter is fetched only if Helvetica Neue is missing. */
+  --font-sans: 'Helvetica Neue', Inter, Helvetica, Arial, sans-serif;
+
+  --step--2: 0.75rem;
+  --step--1: 0.875rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.3rem;
+  --step-2: 1.75rem;
+  --step-3: clamp(2rem, 3.8vw, 3.25rem);
+  --step-4: clamp(2.6rem, 6.2vw, 5.25rem);
+  --step-5: clamp(3.4rem, 10vw, 9rem);
+
+  --gutter: clamp(1rem, 4vw, 3rem);
+  --max: 1360px;
+  --section: clamp(6rem, 14vw, 12rem);
+
+  color-scheme: light dark;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Dark mode: follows the system unless the visitor picks a theme with the header toggle,
+   which sets data-theme on <html> (see Base.astro). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #12121b;
+    --paper-2: #1c1c28;
+    --ink: #efe9df;
+    --slate: #a3a0b2;
+    --rule: #2d2d3c;
+    --homo: #7390ff;
+    --homo-pale: #2c3c78;
+    --lumo: #f2b740;
+    --lumo-pale: #6b5016;
+    --band: #1c1c28;
+    --band-ink: #efe9df;
+    --band-slate: #a3a0b2;
+    --band-rule: #34344a;
+    --glow-strength: 0.35;
+  }
+}
+:root[data-theme='dark'] {
+  --paper: #12121b;
+  --paper-2: #1c1c28;
+  --ink: #efe9df;
+  --slate: #a3a0b2;
+  --rule: #2d2d3c;
+  --homo: #7390ff;
+  --homo-pale: #2c3c78;
+  --lumo: #f2b740;
+  --lumo-pale: #6b5016;
+  --band: #1c1c28;
+  --band-ink: #efe9df;
+  --band-slate: #a3a0b2;
+  --band-rule: #34344a;
+  --glow-strength: 0.35;
+}
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: inherit; }
+
+html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  font-weight: 400;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+a:hover { color: var(--homo); }
+
+:focus-visible { outline: 2px solid var(--homo); outline-offset: 3px; border-radius: 2px; }
+
+h1, h2, h3 {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+p { margin: 0 0 1em; text-wrap: pretty; }
+
+.wrap { max-width: var(--max); margin-inline: auto; padding-inline: var(--gutter); }
+
+/* Small text: labels, dates, metadata */
+.ui { font-size: var(--step--1); letter-spacing: 0.005em; }
+.label {
+  font-size: var(--step--2); font-weight: 400;
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--slate);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Section headings: big, left, quiet */
+.section-title { font-size: var(--step-4); font-weight: 300; letter-spacing: -0.035em; line-height: 1; }
+
+/* Long-form text (project pages, about) */
+.prose { max-width: 64ch; font-size: 1.125rem; line-height: 1.65; }
+.prose h2 { font-size: var(--step-2); margin: 2.4em 0 0.6em; letter-spacing: -0.02em; }
+.prose h3 { font-size: var(--step-1); font-weight: 400; margin: 2em 0 0.5em; }
+.prose img { border-radius: 4px; margin: 2.5rem 0; width: 100%; }
+.prose blockquote {
+  margin: 2.5rem 0; padding: 0; font-weight: 300;
+  font-size: var(--step-2); line-height: 1.25; letter-spacing: -0.02em;
+}
+.prose ul, .prose ol { padding-left: 1.2em; }
+.prose li { margin-bottom: 0.4em; }
+
+/* Plain text link with a thin rule underneath */
+.textlink { text-decoration: underline; }
+
+.button {
+  display: inline-flex; align-items: center; gap: 0.5em;
+  font-weight: 400; font-size: var(--step--1);
+  padding: 0.7em 1.2em; border: 1px solid var(--ink); border-radius: 999px;
+  text-decoration: none; color: var(--ink); background: transparent;
+}
+.button:hover { background: var(--ink); color: var(--paper); }
+
+/* Soft orbital glows: blurred cobalt/amber light, the site's only decoration.
+   Place inside a positioned parent; set position with top/left/right/bottom. */
+.glow {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: var(--size, 28rem); aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, var(--c, var(--lumo)) 0%, transparent 68%);
+  opacity: var(--glow-strength); filter: blur(40px);
+}
+.glow.homo { --c: var(--homo); }
+.glow.lumo { --c: var(--lumo); }
+@media (prefers-reduced-motion: no-preference) {
+  .glow { animation: drift 18s ease-in-out infinite alternate; }
+  .glow:nth-of-type(2n) { animation-duration: 23s; animation-direction: alternate-reverse; }
+  @keyframes drift { to { transform: translate(6%, -8%) scale(1.08); } }
+}
+
+/* Reveal on scroll (class added by Base.astro). Content stays visible without JS. */
+.js [data-reveal] { opacity: 0; transform: translateY(1.25rem); transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.js [data-reveal].in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal] { opacity: 1; transform: none; transition: none; }
+}
+
+/* Cross-page fade, native browser view transitions (no JS) */
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Interactive pieces on project pages (src/components/demos) */
+.demo {
+  margin: 3rem 0; padding: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--paper);
+}
+.demo-head { margin-bottom: 1.25rem; }
+.demo-head .label { display: block; margin-bottom: 0.6rem; color: var(--homo); }
+.demo-head h3 { font-size: var(--step-2); letter-spacing: -0.02em; margin: 0 0 0.5rem; }
+.demo-head p { color: var(--slate); font-size: 1rem; margin: 0; max-width: 52ch; }
+.demo-stage { position: relative; width: 100%; border-radius: 4px; background: var(--paper-2); overflow: hidden; }
+.demo-stage canvas { display: block; width: 100%; height: 100%; }
+.demo-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; margin-top: 1rem; }
+.demo-group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.demo-group > .label { margin-right: 0.35rem; }
+.demo-controls button {
+  font: inherit; font-size: var(--step--1); cursor: pointer; color: var(--slate);
+  background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 0.4em 0.9em;
+}
+.demo-controls button:hover { color: var(--ink); border-color: var(--slate); }
+.demo-controls button[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.demo-caption { font-size: 1rem; line-height: 1.5; margin: 1rem 0 0; min-height: 3em; }
+.demo .demo-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; margin: 0.75rem 0 0; padding: 0; list-style: none; color: var(--slate); font-size: var(--step--1); }
+.demo .demo-legend li { margin: 0; }
+.demo .demo-legend li::before { content: ''; display: inline-block; width: 0.65em; height: 0.65em; border-radius: 50%; margin-right: 0.45em; background: var(--dot, var(--ink)); vertical-align: 0; }
+.demo-note { color: var(--slate); font-size: var(--step--2); font-style: italic; margin: 0.75rem 0 0; }

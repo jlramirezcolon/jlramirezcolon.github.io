@@ -1,0 +1,32 @@
+---
+// The ELIE flight prototype (illustration by José Luis), with hoverable parts.
+import HotspotFigure from './HotspotFigure.astro';
+import art from '../../assets/work/elie-instrument.png';
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const s = t.instrument;
+
+// Outlines in a 1400 × 772 space over the illustration. The baseplate comes first so the
+// parts sitting on it win the pointer.
+const shapes = [
+  { id: 'baseplate', n: 5, d: 'M238 92 L1140 92 L1375 745 L2 745 Z', marker: [300, 700] },
+  { id: 'amplifier', n: 2, d: 'M322 12 H745 V302 H322 Z', marker: [500, 250] },
+  { id: 'faraday', n: 1, d: 'M775 38 H1112 V302 H775 Z', marker: [940, 250] },
+  { id: 'laptop', n: 3, d: 'M376 376 H1080 V682 H376 Z', marker: [728, 530] },
+  { id: 'accelerometers', n: 4, d: 'M1008 316 H1174 V384 H1008 Z M1091 396 H1204 V534 H1091 Z', marker: [1240, 465] },
+] as const;
+const parts = shapes.map((p) => ({ ...p, marker: [...p.marker] as [number, number], ...s.parts[p.id] }));
+---
+<HotspotFigure
+  id="elie-instrument"
+  src={art}
+  alt={s.alt}
+  size={[1400, 772]}
+  parts={parts}
+  kicker={t.explore}
+  title={s.title}
+  intro={s.intro}
+  prompt={s.prompt}
+/>

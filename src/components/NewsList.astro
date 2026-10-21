@@ -1,0 +1,54 @@
+---
+import { Image, getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { ui, type Lang } from '../i18n';
+import { formatMonth } from '../lib/content';
+type Item = { id: string; date: Date; html: string; image?: ImageMetadata; video?: string; poster?: ImageMetadata; caption?: string };
+// media: show each item's photo or video (the News page does; the home page keeps the list compact).
+interface Props { lang: Lang; items: Item[]; media?: boolean }
+const { lang, items, media = false } = Astro.props;
+const t = ui[lang];
+const posters = Object.fromEntries(
+  await Promise.all(
+    items.filter((n) => media && n.video && n.poster).map(async (n) => [n.id, (await getImage({ src: n.poster!, width: 1280, format: 'jpg' })).src]),
+  ),
+);
+---
+<ol class="news-list">
+  {items.map((n) => (
+    <li>
+      <time class="ui" datetime={n.date.toISOString().slice(0, 10)}>{formatMonth(n.date, t.dateLocale)}</time>
+      <div class="body">
+        <p set:html={n.html} />
+        {media && n.video && (
+          <figure class="media">
+            <video controls preload="none" playsinline poster={posters[n.id]} aria-label={n.caption}>
+              <source src={n.video} type="video/mp4" />
+            </video>
+            {n.caption && <figcaption>{n.caption}</figcaption>}
+          </figure>
+        )}
+        {media && !n.video && n.image && (
+          <figure class="media">
+            <Image src={n.image} alt={n.caption ?? ''} widths={[640, 1100]} sizes="(max-width: 860px) 100vw, 640px" />
+            {n.caption && <figcaption>{n.caption}</figcaption>}
+          </figure>
+        )}
+      </div>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .news-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  li { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem 0; border-bottom: 1px solid var(--rule); }
+  time { color: var(--slate); font-variant-numeric: tabular-nums; padding-top: 0.2em; text-transform: capitalize; }
+  p { margin: 0; font-size: 1.2rem; font-weight: 300; line-height: 1.45; max-width: 58ch; }
+  p :global(a) { text-decoration: underline; }
+  .media { margin: 1.1rem 0 0; max-width: 40rem; }
+  .media video, .media :global(img) { display: block; width: 100%; height: auto; border-radius: 6px; background: var(--paper-2); }
+  figcaption { margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.4; color: var(--slate); }
+  @media (max-width: 560px) {
+    li { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
+</style>

@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import NewsList from '../components/NewsList.astro';
+import { getNews } from '../lib/content';
+import { ui, type Lang } from '../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang];
+const all = await getNews(lang);
+const years = [...new Set(all.map((n) => n.date.getUTCFullYear()))];
+---
+<Base lang={lang} title={t.newsTitle} description={t.newsIntro}>
+  <div class="wrap page">
+    <span class="glow homo" style="--size: 26rem; right: -4rem; top: -4rem" aria-hidden="true"></span>
+    <header>
+      <h1 class="section-title">{t.newsTitle}</h1>
+      <p class="intro">{t.newsIntro}</p>
+    </header>
+    {years.map((y) => (
+      <section class="year">
+        <h2>{y}</h2>
+        <NewsList lang={lang} items={all.filter((n) => n.date.getUTCFullYear() === y)} media />
+      </section>
+    ))}
+  </div>
+</Base>
+
+<style>
+  .page { position: relative; padding-top: clamp(3rem, 8vw, 6rem); }
+  .page > :not(.glow) { position: relative; z-index: 1; }
+  header { margin-bottom: clamp(3rem, 7vw, 5rem); }
+  h1 { font-size: var(--step-5); letter-spacing: -0.045em; line-height: 0.95; margin-bottom: 1.5rem; }
+  .intro { color: var(--slate); font-size: var(--step-1); font-weight: 300; }
+  .year { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.5rem; margin-bottom: 4rem; }
+  .year h2 { grid-column: 1 / 5; font-size: var(--step-3); font-weight: 300; color: var(--slate); font-variant-numeric: tabular-nums; }
+  .year :global(.news-list) { grid-column: 5 / 13; }
+  @media (max-width: 860px) {
+    .year h2, .year :global(.news-list) { grid-column: 1 / -1; margin-bottom: 1rem; }
+  }
+</style>

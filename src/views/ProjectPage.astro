@@ -1,0 +1,134 @@
+---
+import { Image } from 'astro:assets';
+import { render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import NanogapDemo from '../components/demos/NanogapDemo.astro';
+import ChiralityDemo from '../components/demos/ChiralityDemo.astro';
+import ElieInstrument from '../components/demos/ElieInstrument.astro';
+import NanogapDiagram from '../components/demos/NanogapDiagram.astro';
+import OrbitalDemo from '../components/demos/OrbitalDemo.astro';
+import HlgDefinition from '../components/demos/HlgDefinition.astro';
+import SilylationDemo from '../components/demos/SilylationDemo.astro';
+import OysterChart from '../components/demos/OysterChart.astro';
+import Gallery from '../components/demos/Gallery.astro';
+import ConductancePlot from '../components/demos/ConductancePlot.astro';
+import EpisodeList from '../components/demos/EpisodeList.astro';
+// Figures that read fine without JavaScript stay visible; interactive pieces start hidden.
+const staticFigures = ['hlg-definition', 'nanogap-diagram', 'oyster-chart', 'gallery', 'conductance', 'episodes'];
+import { getProjects, type Project } from '../lib/content';
+import { ui, href, type Lang } from '../i18n';
+interface Props { lang: Lang; project: Project }
+const { lang, project } = Astro.props;
+const t = ui[lang];
+const { data } = project;
+const { Content } = await render(project.entry);
+const all = await getProjects(lang);
+const idx = all.findIndex((p) => p.slug === project.slug);
+const next = all[(idx + 1) % all.length];
+---
+<Base lang={lang} title={data.title} description={data.summary} image={data.cover?.src}>
+  <article class="page">
+    <header class="wrap head">
+      <span class="glow lumo" style="--size: 28rem; right: -6rem; top: -6rem" aria-hidden="true"></span>
+      <a class="back ui" href={href(lang, '/#work')}>{t.backToWork}</a>
+      <h1>{data.title}</h1>
+      <p class="summary">{data.summary}</p>
+      <dl class="meta ui">
+        {data.year && <div><dt>{t.year}</dt><dd>{data.year}</dd></div>}
+        <div><dt>{t.threadsLabel}</dt><dd>{data.threads.map((th) => t.threads[th]).join(', ')}</dd></div>
+      </dl>
+    </header>
+
+    <figure class="cover wrap">
+      {data.cover ? (
+        <Image src={data.cover} alt={data.coverAlt} widths={[800, 1400, 2000]} sizes="(max-width: 1360px) 100vw, 1360px" loading="eager" />
+      ) : <div class="placeholder" />}
+      {data.art && (
+        <figcaption class="ui"><span class="label">{t.painting}</span> <cite>{data.art.title}</cite> · {data.art.artist}{data.art.year && `, ${data.art.year}`}</figcaption>
+      )}
+    </figure>
+
+    <div class="wrap body">
+      {!project.translated && <p class="notice ui">{t.notTranslated}</p>}
+      <div class="prose"><Content /></div>
+      {data.demos.map((name) => (
+        <div class="demo-mount" data-demo-mount={name} hidden={!staticFigures.includes(name)}>
+          {name === 'hlg-definition' && <HlgDefinition lang={lang} />}
+          {name === 'orbital' && <OrbitalDemo lang={lang} />}
+          {name === 'silylation' && <SilylationDemo lang={lang} />}
+          {name === 'oyster-chart' && <OysterChart lang={lang} />}
+          {name === 'gallery' && data.gallery && <Gallery lang={lang} folder={data.gallery} />}
+          {name === 'conductance' && <ConductancePlot lang={lang} />}
+          {name === 'episodes' && <EpisodeList lang={lang} />}
+          {name === 'elie-instrument' && <ElieInstrument lang={lang} />}
+          {name === 'nanogap-diagram' && <NanogapDiagram lang={lang} />}
+          {name === 'nanogap' && <NanogapDemo lang={lang} />}
+          {name === 'chirality' && <ChiralityDemo lang={lang} />}
+        </div>
+      ))}
+      {data.links.length > 0 && (
+        <div class="links">
+          <h2 class="ui">{t.links}</h2>
+          <ul>
+            {data.links.map((l) => <li><a class="button" href={l.url} target="_blank" rel="noopener">{l.label}</a></li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+
+    {next && next.slug !== project.slug && (
+      <nav class="wrap next" aria-label={t.next}>
+        <span class="ui">{t.next}</span>
+        <a href={href(lang, `/work/${next.slug}/`)}>{next.data.title}</a>
+      </nav>
+    )}
+  </article>
+</Base>
+
+<script>
+  // Each figure or interactive piece moves to its named spot in the text. Interactive ones start
+  // hidden because they need JavaScript; static figures stay visible (after the text) without it.
+  document.querySelectorAll<HTMLElement>('[data-demo-mount]').forEach((mount) => {
+    const slot = document.querySelector(`[data-demo-slot="${mount.dataset.demoMount}"]`);
+    if (slot) slot.replaceWith(mount);
+    mount.hidden = false;
+  });
+</script>
+
+<style>
+  /* Project pages are set entirely in Helvetica Neue Light */
+  .page, .page :global(*) { font-weight: 300; }
+  .head { position: relative; padding-top: clamp(2rem, 6vw, 4rem); }
+  .head > :not(.glow) { position: relative; z-index: 1; }
+  .back { display: inline-block; color: var(--slate); text-decoration: none; margin-bottom: 2.5rem; }
+  .back::before { content: '←\00a0'; }
+  .back:hover { color: var(--ink); }
+  h1 { font-size: var(--step-4); font-weight: 300; letter-spacing: -0.04em; line-height: 1; max-width: 18ch; margin-bottom: 1.5rem; }
+  .summary { font-size: var(--step-1); font-weight: 300; color: var(--slate); max-width: 46ch; line-height: 1.45; }
+  .meta { display: flex; gap: 2.5rem; margin: 2rem 0 0; }
+  dt { color: var(--slate); }
+  dd { margin: 0; color: var(--ink); }
+
+  .cover { margin-top: clamp(2.5rem, 6vw, 4.5rem); margin-bottom: clamp(3rem, 7vw, 5rem); }
+  /* Paintings are shown whole, never cropped */
+  .cover :global(img) { width: auto; max-width: 100%; max-height: 82vh; margin-inline: auto; border-radius: 4px; }
+  .placeholder { width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; }
+  figcaption { margin-top: 1rem; text-align: center; color: var(--slate); }
+  figcaption .label { margin-right: 0.6em; }
+  figcaption cite { font-style: italic; color: var(--ink); }
+  .placeholder { background: var(--paper-2); }
+
+  .body { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.5rem; }
+  .body > * { grid-column: 4 / 12; }
+  .notice { color: var(--slate); border-left: 3px solid var(--lumo); padding-left: 1rem; margin-bottom: 2.5rem; }
+  .links { margin-top: 3rem; }
+  .links h2 { font-size: var(--step--1); color: var(--slate); margin-bottom: 1rem; }
+  .links ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+  .next { margin-top: var(--section); padding-top: 2rem; border-top: 1px solid var(--rule); display: grid; gap: 0.5rem; }
+  .next span { color: var(--slate); }
+  .next a { font-size: var(--step-3); font-weight: 300; letter-spacing: -0.03em; line-height: 1.05; text-decoration: none; max-width: 22ch; }
+  .next a:hover { color: var(--homo); }
+
+  @media (max-width: 1000px) { .body > * { grid-column: 1 / -1; } }
+</style>

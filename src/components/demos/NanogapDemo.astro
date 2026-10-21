@@ -1,0 +1,276 @@
+---
+// ELIE: an illustrative nanogap. Voltage starts a tunneling current; molecules that drift
+// into the gap modulate it and leave blips in the trace. Gravity changes the caption only:
+// in flight, ELIE kept detecting single molecules at every gravity level tested.
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const n = t.nanogap;
+const levels = ['earth', 'mars', 'moon', 'micro'] as const;
+const gValues = { earth: '1 g', mars: '0.38 g', moon: '0.17 g', micro: '≈0.04 g' };
+---
+<figure class="demo nanogap" data-nanogap data-detected={n.detected} data-current={n.current}>
+  <div class="demo-head">
+    <span class="label">{t.label}</span>
+    <h3>{n.title}</h3>
+    <p>{n.intro}</p>
+  </div>
+
+  <div class="demo-stage">
+    <canvas role="img" aria-label={n.title}></canvas>
+  </div>
+
+  <div class="demo-controls">
+    <div class="demo-group" role="group" aria-label={n.voltage}>
+      <span class="label">{n.voltage}</span>
+      <button type="button" data-voltage="off" aria-pressed="true">{n.off}</button>
+      <button type="button" data-voltage="on" aria-pressed="false">{n.on}</button>
+    </div>
+    <div class="demo-group" role="group" aria-label={n.gravity}>
+      <span class="label">{n.gravity}</span>
+      {levels.map((g, i) => (
+        <button type="button" data-gravity={g} data-g={gValues[g]} aria-pressed={i === 0 ? 'true' : 'false'}>{n[g]}</button>
+      ))}
+    </div>
+  </div>
+
+  <p class="demo-caption" aria-live="polite">
+    <span data-caption="off">{n.offCaption}</span>
+    {levels.map((g) => <span data-caption={g} hidden>{n.captions[g]}</span>)}
+  </p>
+  <ul class="demo-legend">
+    <li style="--dot: var(--lumo)">{n.electrodes}</li>
+    <li style="--dot: var(--homo)">{n.electrons}</li>
+    <li style="--dot: var(--ink)">{n.molecule}</li>
+  </ul>
+  <p class="demo-note">{t.illustrative}</p>
+</figure>
+
+<style>
+  .demo-stage { aspect-ratio: 16 / 10; }
+  @media (max-width: 560px) { .demo-stage { aspect-ratio: 4 / 3.4; } }
+</style>
+
+<script>
+  type Molecule = { x: number; y: number; vx: number; vy: number; rot: number; spin: number; seek: boolean; dwell: number; inGap: boolean; cooldown: number };
+  type Electron = { t: number; jitter: number };
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-nanogap]')) init(root);
+
+  function init(root: HTMLElement) {
+    const canvas = root.querySelector('canvas')!;
+    const stage = canvas.parentElement!;
+    const ctx = canvas.getContext('2d')!;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    const labelDetected = root.dataset.detected!;
+    const labelCurrent = root.dataset.current!;
+
+    let W = 0, H = 0, dpr = 1;
+    let voltage = false;
+    let gLabel = '1 g';
+    let detected = 0;
+    const molecules: Molecule[] = [];
+    const electrons: Electron[] = [];
+    let trace: number[] = [];
+    let electronClock = 0;
+    let seekClock = 1.2;
+    let blip = 0; // smoothed extra current while a molecule sits in the gap
+
+    // Colors come from the site's tokens so light and dark mode both work.
+    let colors: Record<string, string> = {};
+    const readColors = () => {
+      const cs = getComputedStyle(document.documentElement);
+      for (const k of ['ink', 'slate', 'rule', 'homo', 'lumo', 'paper', 'paper-2']) colors[k] = cs.getPropertyValue(`--${k}`).trim();
+    };
+    readColors();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+    document.addEventListener('themechange', () => { readColors(); draw(); });
+
+    // Layout: schematic on top, current trace below.
+    const geo = () => {
+      const schemH = H * 0.6;
+      const cx = W / 2, cy = schemH * 0.52;
+      const gap = Math.max(18, W * 0.06);
+      return { schemH, cx, cy, gap, traceTop: schemH + 8, traceH: H - schemH - 16 };
+    };
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = stage.clientWidth; H = stage.clientHeight;
+      if (!W || !H) return;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!molecules.length) seed();
+      const len = Math.ceil(W / 2);
+      trace = trace.length > len ? trace.slice(-len) : [...new Array(len - trace.length).fill(0), ...trace];
+      draw();
+    }
+
+    function seed() {
+      const { schemH } = geo();
+      for (let i = 0; i < 6; i++) {
+        molecules.push({
+          x: W * (0.1 + 0.8 * Math.random()), y: schemH * (0.15 + 0.7 * Math.random()),
+          vx: (Math.random() - 0.5) * 30, vy: (Math.random() - 0.5) * 30,
+          rot: Math.random() * 6, spin: (Math.random() - 0.5) * 1.5,
+          seek: false, dwell: 0, inGap: false, cooldown: 0,
+        });
+      }
+    }
+
+    function step(dt: number) {
+      const { schemH, cx, cy, gap } = geo();
+      // Every couple of seconds, one molecule wanders toward the gap.
+      seekClock -= dt;
+      if (seekClock <= 0) {
+        const free = molecules.filter((m) => !m.seek && !m.inGap && m.cooldown <= 0);
+        if (free.length) free[Math.floor(Math.random() * free.length)].seek = true;
+        seekClock = 1.8 + Math.random() * 1.8;
+      }
+
+      let anyInGap = false;
+      for (const m of molecules) {
+        m.cooldown -= dt;
+        if (m.inGap) {
+          m.dwell -= dt;
+          m.x += (cx - m.x) * 0.2; m.y += (cy - m.y) * 0.2;
+          m.rot += m.spin * dt * 3;
+          if (m.dwell <= 0) {
+            m.inGap = false; m.cooldown = 3;
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            m.vx = 0; m.vy = dir * 70;
+          } else anyInGap = true;
+          continue;
+        }
+        // Brownian-like wandering, with a gentle pull toward the gap for the "seeking" one.
+        m.vx += (Math.random() - 0.5) * 120 * dt;
+        m.vy += (Math.random() - 0.5) * 120 * dt;
+        if (m.seek) { m.vx += (cx - m.x) * 0.9 * dt; m.vy += (cy - m.y) * 0.9 * dt; }
+        m.vx *= 0.985; m.vy *= 0.985;
+        const vmax = m.seek ? 80 : 45;
+        const v = Math.hypot(m.vx, m.vy);
+        if (v > vmax) { m.vx *= vmax / v; m.vy *= vmax / v; }
+        m.x += m.vx * dt; m.y += m.vy * dt;
+        m.rot += m.spin * dt;
+        // Stay inside the schematic.
+        if (m.x < 12 || m.x > W - 12) { m.vx *= -1; m.x = Math.min(W - 12, Math.max(12, m.x)); }
+        if (m.y < 12 || m.y > schemH - 12) { m.vy *= -1; m.y = Math.min(schemH - 12, Math.max(12, m.y)); }
+        if (Math.hypot(m.x - cx, m.y - cy) < gap * 0.45 && m.cooldown <= 0) {
+          m.inGap = true; m.seek = false; m.dwell = 0.5 + Math.random() * 0.6;
+          if (voltage) detected++;
+          anyInGap = true;
+        }
+      }
+
+      // Tunneling electrons hop from tip to tip; more of them while a molecule modulates the gap.
+      blip += ((anyInGap && voltage ? 1 : 0) - blip) * Math.min(1, dt * 18);
+      if (voltage) {
+        electronClock += dt * (22 + 40 * blip);
+        while (electronClock >= 1) { electronClock -= 1; electrons.push({ t: 0, jitter: (Math.random() - 0.5) * 0.9 }); }
+      }
+      for (const e of electrons) e.t += dt * 3.2;
+      while (electrons.length && electrons[0].t >= 1) electrons.shift();
+
+      // Current trace (arbitrary units).
+      const noise = (Math.random() - 0.5) * 0.035;
+      const wobble = blip > 0.05 ? (Math.random() - 0.5) * 0.08 * blip : 0;
+      const value = voltage ? 0.3 + noise + blip * 0.42 + wobble : noise * 0.3;
+      trace.push(value);
+      if (trace.length > Math.ceil(W / 2)) trace.shift();
+    }
+
+    function draw() {
+      if (!W || !H) return;
+      const { schemH, cx, cy, gap, traceTop, traceH } = geo();
+      ctx.clearRect(0, 0, W, H);
+
+      // Electrodes: two gold wedges tapering to atomically sharp tips.
+      const halfH = schemH * 0.16;
+      ctx.fillStyle = colors.lumo;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath(); ctx.moveTo(0, cy - halfH); ctx.lineTo(cx - gap / 2, cy); ctx.lineTo(0, cy + halfH); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(W, cy - halfH); ctx.lineTo(cx + gap / 2, cy); ctx.lineTo(W, cy + halfH); ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Electrons crossing the gap.
+      ctx.fillStyle = colors.homo;
+      for (const e of electrons) {
+        const x = cx - gap / 2 + e.t * gap;
+        const y = cy + Math.sin(e.t * Math.PI) * e.jitter * gap * 0.35;
+        ctx.globalAlpha = Math.sin(e.t * Math.PI) * 0.9 + 0.1;
+        ctx.beginPath(); ctx.arc(x, y, 2.8, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Molecules: a small cluster of atoms.
+      for (const m of molecules) {
+        ctx.fillStyle = colors.slate;
+        for (let k = 0; k < 3; k++) {
+          const a = m.rot + (k * Math.PI * 2) / 3;
+          ctx.beginPath(); ctx.arc(m.x + Math.cos(a) * 7, m.y + Math.sin(a) * 7, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = colors.ink;
+        ctx.beginPath(); ctx.arc(m.x, m.y, 5, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Divider and gravity readout.
+      ctx.fillStyle = colors.slate;
+      ctx.font = '300 12px "Helvetica Neue", Inter, Helvetica, Arial, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(gLabel, W - 10, 18);
+
+      // Current trace.
+      ctx.strokeStyle = colors.rule; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, schemH); ctx.lineTo(W, schemH); ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.fillText(labelCurrent, 10, traceTop + 14);
+      // On narrow screens, stack the two labels instead of setting them side by side.
+      const narrow = W < 460;
+      ctx.textAlign = narrow ? 'left' : 'right';
+      ctx.fillText(`${labelDetected}: ${detected}`, narrow ? 10 : W - 10, traceTop + (narrow ? 30 : 14));
+      const base = traceTop + traceH - 4;
+      const scale = traceH - (narrow ? 40 : 26);
+      ctx.strokeStyle = colors.homo; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      trace.forEach((v, i) => {
+        const x = W - (trace.length - 1 - i) * 2;
+        const y = base - Math.max(0, v) * scale;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    // Animation loop, paused off-screen. Reduced motion: fast-forward and draw one frame.
+    let running = false, visible = false, last = 0;
+    function frame(now: number) {
+      const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+      last = now;
+      step(dt); draw();
+      if (visible && !reduce.matches) requestAnimationFrame(frame); else running = false;
+    }
+    function play() {
+      if (reduce.matches) { for (let i = 0; i < 360; i++) step(1 / 60); draw(); return; }
+      if (!running && visible) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+    }
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) play(); }).observe(stage);
+    new ResizeObserver(resize).observe(stage);
+
+    // Controls
+    const vButtons = root.querySelectorAll<HTMLButtonElement>('[data-voltage]');
+    const gButtons = root.querySelectorAll<HTMLButtonElement>('[data-gravity]');
+    const captions = root.querySelectorAll<HTMLElement>('[data-caption]');
+    let gravity = 'earth';
+    const updateCaption = () => captions.forEach((c) => (c.hidden = c.dataset.caption !== (voltage ? gravity : 'off')));
+    vButtons.forEach((b) => b.addEventListener('click', () => {
+      voltage = b.dataset.voltage === 'on';
+      vButtons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      updateCaption(); play();
+    }));
+    gButtons.forEach((b) => b.addEventListener('click', () => {
+      gravity = b.dataset.gravity!; gLabel = b.dataset.g!;
+      gButtons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      updateCaption(); play();
+    }));
+  }
+</script>

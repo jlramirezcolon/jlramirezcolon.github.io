@@ -1,0 +1,276 @@
+---
+// Chirality: L- and D-alanine side by side as mirror images, and stacked to show they never match.
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const c = t.chirality;
+---
+<figure class="demo chirality" data-chirality data-state="side">
+  <div class="demo-head">
+    <span class="label">{t.label}</span>
+    <h3>{c.title}</h3>
+    <p>{c.intro}</p>
+  </div>
+
+  <div class="demo-stage">
+    <canvas role="img" aria-label={`${c.l}, ${c.d}`}></canvas>
+    <span class="mirror" aria-hidden="true"><span class="label">{c.mirror}</span></span>
+    <span class="name name-l label" aria-hidden="true">{c.l}</span>
+    <span class="name name-d label" aria-hidden="true">{c.d}</span>
+    <span class="hint label" aria-hidden="true">{c.hint}</span>
+  </div>
+
+  <div class="demo-controls">
+    <div class="demo-group" role="group">
+      <button type="button" data-mode="side" aria-pressed="true">{c.separate}</button>
+      <button type="button" data-mode="stack" aria-pressed="false">{c.stack}</button>
+    </div>
+  </div>
+
+  <p class="demo-caption" aria-live="polite">
+    <span data-caption="side">{c.sideCaption}</span>
+    <span data-caption="stack" hidden>{c.stackCaption}</span>
+  </p>
+  <ul class="demo-legend">
+    <li style="--dot: var(--ink)">{c.carbon}</li>
+    <li style="--dot: var(--slate)">{c.hydrogen}</li>
+    <li style="--dot: var(--homo)">{c.nitrogen}</li>
+    <li style="--dot: var(--lumo)">{c.oxygen}</li>
+  </ul>
+</figure>
+
+<style>
+  .demo-stage { aspect-ratio: 16 / 9; }
+  @media (max-width: 560px) { .demo-stage { aspect-ratio: 1 / 1; } }
+  canvas { cursor: grab; touch-action: pan-y; }
+  canvas:active { cursor: grabbing; }
+  .mirror {
+    position: absolute; top: 8%; bottom: 8%; left: 50%; width: 0;
+    border-left: 1px dashed var(--slate); opacity: 0.6; transition: opacity 0.5s;
+  }
+  .mirror .label { position: absolute; top: -0.2rem; left: 0.5rem; }
+  .name { position: absolute; bottom: 0.75rem; transition: opacity 0.5s, left 0.6s; }
+  .name-l { left: 25%; transform: translateX(-50%); }
+  .name-d { left: 75%; transform: translateX(-50%); }
+  .hint { position: absolute; top: 0.75rem; right: 0.9rem; transition: opacity 0.4s; }
+  [data-state='stack'] .mirror { opacity: 0; }
+  [data-state='stack'] .name-l { left: 50%; }
+  [data-state='stack'] .name-d { opacity: 0; }
+  .touched .hint { opacity: 0; }
+  @media (max-width: 560px) { .mirror .label { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .name, .mirror { transition: none; } }
+</style>
+
+<script>
+  import * as THREE from 'three';
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-chirality]')) init(root);
+
+  function init(root: HTMLElement) {
+    const canvas = root.querySelector('canvas')!;
+    const stage = canvas.parentElement!;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    const css = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch {
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, 16 / 9, 0.1, 100);
+    camera.position.set(0, 0, 14);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 2.2));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(4, 6, 8);
+    scene.add(key);
+
+    // --- Build L-alanine around its chiral carbon (CA at the origin).
+    // H points away from the viewer; NH2 -> COOH -> CH3 run counterclockwise, which is the S (= L) configuration.
+    type El = 'C' | 'H' | 'N' | 'O';
+    const atoms: { el: El; p: THREE.Vector3 }[] = [];
+    const bonds: [number, number][] = [];
+    const add = (el: El, p: THREE.Vector3) => (atoms.push({ el, p }), atoms.length - 1);
+    const tetra = (deg: number) => {
+      const a = THREE.MathUtils.degToRad(deg);
+      return new THREE.Vector3(0.943 * Math.cos(a), 0.943 * Math.sin(a), 0.333);
+    };
+    // Children of a group atom, spread around its bond axis.
+    const perp = (u: THREE.Vector3) => {
+      const v = Math.abs(u.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+      const a = new THREE.Vector3().crossVectors(u, v).normalize();
+      return [a, new THREE.Vector3().crossVectors(u, a).normalize()];
+    };
+    const around = (u: THREE.Vector3, k: number, half: number, phase = 0) => {
+      const [a, b] = perp(u);
+      const h = THREE.MathUtils.degToRad(half);
+      return Array.from({ length: k }, (_, i) => {
+        const f = phase + (i * Math.PI * 2) / k;
+        return u.clone().multiplyScalar(Math.cos(h)).add(a.clone().multiplyScalar(Math.sin(h) * Math.cos(f))).add(b.clone().multiplyScalar(Math.sin(h) * Math.sin(f))).normalize();
+      });
+    };
+
+    const CA = add('C', new THREE.Vector3());
+    const dH = new THREE.Vector3(0, 0, -1), dN = tetra(90), dC = tetra(210), dM = tetra(330);
+    bonds.push([CA, add('H', dH.clone().multiplyScalar(1.1))]);
+    const N = add('N', dN.clone().multiplyScalar(1.47));
+    bonds.push([CA, N]);
+    for (const d of around(dN, 2, 70.5)) bonds.push([N, add('H', atoms[N].p.clone().add(d.multiplyScalar(1.0)))]);
+    const C = add('C', dC.clone().multiplyScalar(1.53));
+    bonds.push([CA, C]);
+    const [ca, cb] = perp(dC);
+    const o1d = dC.clone().multiplyScalar(0.5).add(ca.clone().multiplyScalar(0.866)).normalize();
+    const o2d = dC.clone().multiplyScalar(0.5).add(ca.clone().multiplyScalar(-0.866)).normalize();
+    const O1 = add('O', atoms[C].p.clone().add(o1d.multiplyScalar(1.22)));
+    const O2 = add('O', atoms[C].p.clone().add(o2d.clone().multiplyScalar(1.34)));
+    bonds.push([C, O1], [C, O2]);
+    bonds.push([O2, add('H', atoms[O2].p.clone().add(o2d.clone().multiplyScalar(0.5).add(cb.clone().multiplyScalar(0.0)).add(dC.clone().multiplyScalar(0.6)).normalize().multiplyScalar(0.97)))]);
+    const M = add('C', dM.clone().multiplyScalar(1.53));
+    bonds.push([CA, M]);
+    for (const d of around(dM, 3, 70.5, 0.4)) bonds.push([M, add('H', atoms[M].p.clone().add(d.multiplyScalar(1.09)))]);
+
+    // --- Materials follow the site's colors.
+    const mats: Record<El, THREE.MeshStandardMaterial> = {
+      C: new THREE.MeshStandardMaterial({ roughness: 0.5 }),
+      H: new THREE.MeshStandardMaterial({ roughness: 0.6 }),
+      N: new THREE.MeshStandardMaterial({ roughness: 0.45 }),
+      O: new THREE.MeshStandardMaterial({ roughness: 0.45 }),
+    };
+    const bondMat = new THREE.MeshStandardMaterial({ roughness: 0.6 });
+    const ghostMats: Record<El, THREE.MeshStandardMaterial> = {
+      C: mats.C.clone(), H: mats.H.clone(), N: mats.N.clone(), O: mats.O.clone(),
+    };
+    const ghostBond = bondMat.clone();
+    for (const m of [...Object.values(ghostMats), ghostBond]) { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
+    function applyColors() {
+      const map: Record<El, string> = { C: css('--ink'), H: css('--slate'), N: css('--homo'), O: css('--lumo') };
+      for (const el of Object.keys(map) as El[]) { mats[el].color.set(map[el]); ghostMats[el].color.set(map[el]); }
+      bondMat.color.set(css('--slate')); ghostBond.color.set(css('--slate'));
+    }
+    applyColors();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyColors(); wake(); });
+    document.addEventListener('themechange', () => { applyColors(); wake(); });
+
+    const sphere = new THREE.SphereGeometry(1, 32, 24);
+    const radius: Record<El, number> = { C: 0.34, N: 0.34, O: 0.34, H: 0.2 };
+    function build(mirror: boolean, ghost: boolean) {
+      const g = new THREE.Group();
+      const pos = atoms.map((a) => (mirror ? new THREE.Vector3(-a.p.x, a.p.y, a.p.z) : a.p.clone()));
+      atoms.forEach((a, i) => {
+        const m = new THREE.Mesh(sphere, (ghost ? ghostMats : mats)[a.el]);
+        m.scale.setScalar(radius[a.el]);
+        m.position.copy(pos[i]);
+        g.add(m);
+      });
+      for (const [i, j] of bonds) {
+        const len = pos[i].distanceTo(pos[j]);
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, len, 12), ghost ? ghostBond : bondMat);
+        m.position.copy(pos[i]).add(pos[j]).multiplyScalar(0.5);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos[j].clone().sub(pos[i]).normalize());
+        g.add(m);
+      }
+      scene.add(g);
+      return g;
+    }
+    const L = build(false, false);
+    const D = build(true, false);
+    const Dghost = build(true, true);
+    Dghost.visible = false;
+
+    // --- State: side by side (D mirrors L's rotation) or stacked (D free, drawn translucent over L).
+    let mode: 'side' | 'stack' = 'side';
+    let spread = 2.6; // x offset of each molecule from center
+    let mix = 0; // 0 = side, 1 = stacked
+    let target = 0;
+    const rotL = new THREE.Euler(-0.35, 0.6, 0.1);
+    const rotD = new THREE.Euler();
+    let idle = true;
+
+    function layout() {
+      const k = mix;
+      // Lifted a little so the names at the bottom of the stage stay clear.
+      L.position.set(-spread * (1 - k), 0.45, 0);
+      D.position.set(spread * (1 - k), 0.45, 0);
+      L.rotation.copy(rotL);
+      if (mode === 'side' || k < 1) {
+        // Mirror of L's rotation across the x = 0 plane.
+        D.rotation.set(rotL.x, -rotL.y, -rotL.z);
+        if (mode === 'stack') D.rotation.set(rotL.x, rotL.y * (2 * k - 1), rotL.z * (2 * k - 1));
+      } else D.rotation.copy(rotD);
+      Dghost.position.copy(D.position); Dghost.rotation.copy(D.rotation);
+      const stacked = k > 0.5;
+      D.visible = !stacked; Dghost.visible = stacked;
+    }
+
+    // --- Drag to rotate. Side by side: the molecule under the pointer follows it, the other mirrors.
+    let dragging = false, lastX = 0, lastY = 0, side = -1;
+    canvas.addEventListener('pointerdown', (e) => {
+      dragging = true; idle = false; lastX = e.clientX; lastY = e.clientY;
+      const r = canvas.getBoundingClientRect();
+      side = e.clientX - r.left < r.width / 2 ? -1 : 1;
+      canvas.setPointerCapture(e.pointerId);
+      stage.classList.add('touched');
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = (e.clientX - lastX) * 0.01, dy = (e.clientY - lastY) * 0.01;
+      lastX = e.clientX; lastY = e.clientY;
+      if (mode === 'stack' && mix >= 1) { rotD.y += dx; rotD.x += dy; }
+      else { rotL.y += side < 0 ? dx : -dx; rotL.x += dy; }
+      wake();
+    });
+    const end = () => { dragging = false; };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+
+    // --- Mode buttons
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-mode]');
+    const captions = root.querySelectorAll<HTMLElement>('[data-caption]');
+    buttons.forEach((b) => b.addEventListener('click', () => {
+      mode = b.dataset.mode as 'side' | 'stack';
+      target = mode === 'stack' ? 1 : 0;
+      if (mode === 'stack') rotD.copy(rotL);
+      root.dataset.state = mode;
+      buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      captions.forEach((c) => (c.hidden = c.dataset.caption !== mode));
+      if (reduce.matches) mix = target;
+      wake();
+    }));
+
+    // --- Size and render loop (paused off-screen).
+    function resize() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      // Keep both molecules in view on narrow screens.
+      camera.position.z = w / h < 1.2 ? 17 : 13;
+      spread = w / h < 1.2 ? 2.4 : 2.6;
+      camera.updateProjectionMatrix();
+      // Draw right away, even before the page reports the figure as on-screen.
+      layout();
+      renderer.render(scene, camera);
+      wake();
+    }
+    new ResizeObserver(resize).observe(stage);
+
+    let visible = false, running = false;
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) wake(); }).observe(stage);
+    function wake() { if (!running && visible) { running = true; requestAnimationFrame(frame); } }
+    function frame() {
+      const d = target - mix;
+      const moving = Math.abs(d) > 0.002;
+      mix = moving ? mix + d * 0.1 : target;
+      const spinning = idle && !reduce.matches && mode === 'side';
+      if (spinning) rotL.y += 0.004;
+      layout();
+      renderer.render(scene, camera);
+      running = visible && (moving || spinning || dragging);
+      if (running) requestAnimationFrame(frame);
+    }
+    layout();
+  }
+</script>

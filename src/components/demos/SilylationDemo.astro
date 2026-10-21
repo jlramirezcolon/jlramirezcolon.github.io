@@ -1,0 +1,120 @@
+---
+// Amides: silylation of acetamide by MSTFA, simplified. The trimethylsilyl group moves from MSTFA's
+// nitrogen to the amide's nitrogen, swapping places with a hydrogen:
+//   CH3-C(=O)-NH2 + CF3-C(=O)-N(CH3)-Si(CH3)3  ->  CH3-C(=O)-NH-Si(CH3)3 + CF3-C(=O)-NH(CH3)
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const s = t.silylation;
+// Slots where the swapping groups sit: left = the amide's nitrogen, right = MSTFA's nitrogen.
+const L = [262, 160], R = [384, 160];
+---
+<figure class="demo silylation" data-silylation data-state="before">
+  <div class="demo-head">
+    <span class="label">{t.label}</span>
+    <h3>{s.title}</h3>
+    <p>{s.intro}</p>
+  </div>
+
+  <div class="demo-stage">
+    <svg viewBox="0 0 640 310" role="img" aria-label={s.title}>
+      <!-- Bonds -->
+      <g class="bonds">
+        <line x1="62" y1="150" x2="132" y2="150" />
+        <line x1="126" y1="150" x2="126" y2="86" /><line x1="138" y1="150" x2="138" y2="86" />
+        <line x1="132" y1="150" x2="196" y2="186" />
+        <line x1="196" y1="186" x2="196" y2="246" />
+        <line x1="196" y1="186" x2={L[0]} y2={L[1]} />
+        <line x1={R[0]} y1={R[1]} x2="446" y2="186" />
+        <line x1="446" y1="186" x2="446" y2="252" />
+        <line x1="446" y1="186" x2="512" y2="150" />
+        <line x1="506" y1="150" x2="506" y2="86" /><line x1="518" y1="150" x2="518" y2="86" />
+        <line x1="512" y1="150" x2="584" y2="150" />
+      </g>
+      <!-- Fixed atoms -->
+      <g class="atom group"><circle cx="62" cy="150" r="22" /><text x="62" y="155">CH₃</text></g>
+      <g class="atom c"><circle cx="132" cy="150" r="16" /><text x="132" y="155">C</text></g>
+      <g class="atom o"><circle cx="132" cy="84" r="16" /><text x="132" y="89">O</text></g>
+      <g class="atom n"><circle cx="196" cy="186" r="16" /><text x="196" y="191">N</text></g>
+      <g class="atom h"><circle cx="196" cy="248" r="12" /><text x="196" y="252">H</text></g>
+      <g class="atom n"><circle cx="446" cy="186" r="16" /><text x="446" y="191">N</text></g>
+      <g class="atom group"><circle cx="446" cy="254" r="22" /><text x="446" y="259">CH₃</text></g>
+      <g class="atom c"><circle cx="512" cy="150" r="16" /><text x="512" y="155">C</text></g>
+      <g class="atom o"><circle cx="512" cy="84" r="16" /><text x="512" y="89">O</text></g>
+      <g class="atom group"><circle cx="586" cy="150" r="22" /><text x="586" y="155">CF₃</text></g>
+      <!-- The two groups that trade places -->
+      <g class="mover h-mover" style={`--dx: ${R[0] - L[0]}px`}>
+        <g class="atom h"><circle cx={L[0]} cy={L[1]} r="12" /><text x={L[0]} y={L[1] + 4}>H</text></g>
+      </g>
+      <g class="mover tms-mover" style={`--dx: ${L[0] - R[0]}px`}>
+        <g class="atom tms"><circle cx={R[0]} cy={R[1]} r="34" /><text x={R[0]} y={R[1] + 5}>Si(CH₃)₃</text></g>
+      </g>
+      <!-- Names -->
+      <text class="name before" x="140" y="298">{s.acetamide}</text>
+      <text class="name before" x="500" y="298">MSTFA</text>
+      <text class="name after" x="140" y="298">{s.product}</text>
+      <text class="name after" x="500" y="298">{s.byproduct}</text>
+    </svg>
+  </div>
+
+  <div class="demo-controls">
+    <div class="demo-group">
+      <button type="button" data-react aria-pressed="false">{s.react}</button>
+      <button type="button" data-reset hidden>{s.reset}</button>
+    </div>
+  </div>
+  <p class="demo-caption" aria-live="polite">
+    <span data-caption="before">{s.beforeText}</span>
+    <span data-caption="after" hidden>{s.afterText}</span>
+  </p>
+  <ul class="demo-legend">
+    <li style="--dot: var(--ink)">{s.carbon}</li>
+    <li style="--dot: var(--homo)">{s.nitrogen}</li>
+    <li style="--dot: var(--lumo)">{s.oxygen}</li>
+    <li style="--dot: var(--slate)">{s.hydrogen}</li>
+  </ul>
+  <p class="demo-note">{s.note}</p>
+</figure>
+
+<style>
+  .demo-stage { padding: 0.5rem; }
+  svg { display: block; width: 100%; height: auto; }
+  .bonds line { stroke: var(--slate); stroke-width: 3; stroke-linecap: round; }
+  .atom circle { stroke: none; }
+  .atom text { font: 400 15px var(--font-sans); text-anchor: middle; fill: #fff; }
+  .c circle, .group circle { fill: var(--ink); }
+  .c text, .group text { fill: var(--paper); }
+  .o circle { fill: var(--lumo); }
+  .o text { fill: #1f2140; }
+  .n circle { fill: var(--homo); }
+  .h circle { fill: var(--slate); }
+  .h text { font-size: 12px; fill: var(--paper); }
+  .tms circle { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+  .tms text { fill: var(--ink); font-size: 14px; }
+  .mover { transition: transform 1.4s cubic-bezier(0.5, 0, 0.2, 1); }
+  [data-state='after'] .mover { transform: translateX(var(--dx)); }
+  .tms-mover { transition-delay: 0.1s; }
+  .name { font: 300 14px var(--font-sans); fill: var(--slate); text-anchor: middle; transition: opacity 0.5s; }
+  .name.after { opacity: 0; }
+  [data-state='after'] .name.before { opacity: 0; }
+  [data-state='after'] .name.after { opacity: 1; transition-delay: 1s; }
+  @media (prefers-reduced-motion: reduce) { .mover, .name { transition: none; } }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-silylation]')) {
+    const react = root.querySelector<HTMLButtonElement>('[data-react]')!;
+    const reset = root.querySelector<HTMLButtonElement>('[data-reset]')!;
+    const captions = root.querySelectorAll<HTMLElement>('[data-caption]');
+    const set = (state: 'before' | 'after') => {
+      root.dataset.state = state;
+      react.setAttribute('aria-pressed', String(state === 'after'));
+      react.hidden = state === 'after';
+      reset.hidden = state === 'before';
+      captions.forEach((c) => (c.hidden = c.dataset.caption !== state));
+    };
+    react.addEventListener('click', () => set('after'));
+    reset.addEventListener('click', () => set('before'));
+  }
+</script>

@@ -1,0 +1,146 @@
+---
+// A drawing with numbered parts. Hover, focus, or tap a part (or its button) to highlight it
+// and read what it does. Labels drawn over the image are localized, so the art itself carries no text.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+type Part = { id: string; n: number; d: string; marker: [number, number]; name: string; text: string };
+// fixed: label sits on a light area of the drawing, so it keeps dark ink in both themes.
+type Label = { lines: string[]; x: number; y: number; anchor?: 'start' | 'end'; fixed?: boolean };
+interface Props {
+  id: string;
+  src: ImageMetadata;
+  alt: string;
+  size: [number, number]; // coordinate space the outlines and labels use
+  parts: Part[]; // in stacking order: later parts sit on top and win the pointer
+  labels?: Label[];
+  kicker: string;
+  title: string;
+  intro: string;
+  prompt: string;
+  maxWidth?: string;
+}
+const { id, src, alt, size, parts, labels = [], kicker, title, intro, prompt, maxWidth = '100%' } = Astro.props;
+const [w, h] = size;
+const listed = [...parts].sort((a, b) => a.n - b.n);
+---
+<figure class="demo hotspots" data-hotspots>
+  <div class="demo-head">
+    <span class="label">{kicker}</span>
+    <h3>{title}</h3>
+    <p>{intro}</p>
+  </div>
+
+  <div class="art" style={`max-width: ${maxWidth}`}>
+    <Image src={src} alt={alt} widths={[600, 1000, 1600]} sizes="(max-width: 760px) 100vw, 720px" />
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <mask id={`${id}-spotlight`}>
+          <rect width={w} height={h} fill="white" />
+          <path data-hole d="" fill="black" />
+        </mask>
+      </defs>
+      {labels.map((l) => (
+        <text class:list={['art-label', { fixed: l.fixed }]} x={l.x} y={l.y} text-anchor={l.anchor ?? 'start'}>
+          {l.lines.map((line, i) => <tspan x={l.x} dy={i ? '1.22em' : 0}>{line}</tspan>)}
+        </text>
+      ))}
+      <rect class="shade" width={w} height={h} mask={`url(#${id}-spotlight)`} />
+      {parts.map((p) => <path class="hit" data-part={p.id} d={p.d} />)}
+      {parts.map((p) => (
+        <g class="marker" data-marker={p.id} transform={`translate(${p.marker[0]} ${p.marker[1]})`}>
+          <circle r="24" />
+          <text text-anchor="middle" dy="9">{p.n}</text>
+        </g>
+      ))}
+    </svg>
+  </div>
+
+  <ol class="parts" role="list">
+    {listed.map((p) => (
+      <li><button type="button" data-select={p.id} aria-pressed="false"><span class="n">{p.n}</span>{p.name}</button></li>
+    ))}
+  </ol>
+
+  <div class="detail" aria-live="polite">
+    <p class="prompt" data-detail="none">{prompt}</p>
+    {listed.map((p) => (
+      <div data-detail={p.id} hidden>
+        <h4>{p.name}</h4>
+        <p>{p.text}</p>
+      </div>
+    ))}
+  </div>
+  {/* Labels for screen readers, since the drawn ones are hidden from them */}
+  {labels.length > 0 && <p class="visually-hidden">{labels.map((l) => l.lines.join(' ')).join('. ')}</p>}
+</figure>
+
+<style>
+  .art { position: relative; margin: 0 auto; }
+  .art :global(img) { display: block; width: 100%; height: auto; margin: 0; border-radius: 0; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .art-label { font: 300 46px var(--font-sans); fill: var(--ink); }
+  .art-label.fixed { fill: #1f2140; }
+  /* Spotlight: everything but the active part fades toward the page color. */
+  .shade { fill: var(--paper); opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+  .hotspots.has-active .shade { opacity: 0.62; }
+  .hit { fill: transparent; stroke: transparent; stroke-width: 2.5; vector-effect: non-scaling-stroke; cursor: pointer; transition: stroke 0.25s; }
+  .hit.active { stroke: var(--homo); }
+  .marker { pointer-events: none; transition: opacity 0.3s; }
+  .marker circle { fill: var(--homo); }
+  .marker text { fill: #fff; font: 300 26px var(--font-sans); }
+  .hotspots.has-active .marker:not(.active) { opacity: 0.3; }
+
+  .parts { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .parts li { margin: 0; }
+  .parts button {
+    font: inherit; font-size: var(--step--1); cursor: pointer; color: var(--slate);
+    background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 0.4em 0.9em 0.4em 0.45em;
+    display: inline-flex; align-items: center; gap: 0.5em;
+  }
+  .parts button:hover { color: var(--ink); border-color: var(--slate); }
+  .parts button[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .n { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; background: var(--homo); color: #fff; font-size: 0.8em; }
+
+  .detail { margin-top: 1rem; min-height: 5.5em; }
+  .detail h4 { font-size: var(--step-1); letter-spacing: -0.01em; margin: 0 0 0.35rem; }
+  .detail p { font-size: 1rem; line-height: 1.5; margin: 0; max-width: 56ch; }
+  .prompt { color: var(--slate); }
+  @media (prefers-reduced-motion: reduce) { .shade, .hit, .marker { transition: none; } }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-hotspots]')) {
+    const hits = root.querySelectorAll<SVGPathElement>('[data-part]');
+    const markers = root.querySelectorAll<SVGGElement>('[data-marker]');
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-select]');
+    const details = root.querySelectorAll<HTMLElement>('[data-detail]');
+    const hole = root.querySelector<SVGPathElement>('[data-hole]')!;
+    let locked: string | null = null;
+
+    const show = (id: string | null) => {
+      root.classList.toggle('has-active', !!id);
+      hits.forEach((h) => h.classList.toggle('active', h.dataset.part === id));
+      markers.forEach((m) => m.classList.toggle('active', m.dataset.marker === id));
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.select === id)));
+      details.forEach((d) => (d.hidden = d.dataset.detail !== (id ?? 'none')));
+      hole.setAttribute('d', id ? root.querySelector(`[data-part="${id}"]`)!.getAttribute('d')! : '');
+    };
+    const toggle = (id: string) => { locked = locked === id ? null : id; show(locked); };
+
+    hits.forEach((h) => {
+      const id = h.dataset.part!;
+      h.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') show(id); });
+      h.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') show(locked); });
+      h.addEventListener('click', () => toggle(id));
+    });
+    buttons.forEach((b) => {
+      const id = b.dataset.select!;
+      b.addEventListener('mouseenter', () => show(id));
+      b.addEventListener('mouseleave', () => show(locked));
+      b.addEventListener('focus', () => show(id));
+      b.addEventListener('blur', () => show(locked));
+      b.addEventListener('click', () => toggle(id));
+    });
+  }
+</script>

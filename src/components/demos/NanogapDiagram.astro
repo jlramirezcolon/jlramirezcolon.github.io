@@ -1,0 +1,40 @@
+---
+// How a nanogap forms (diagram by José Luis), with hoverable parts and labels in the page's language.
+// The art has no text of its own; labels are drawn over it.
+import HotspotFigure from './HotspotFigure.astro';
+import art from '../../assets/work/nanogap-notext.png';
+import { ui, type Lang } from '../../i18n';
+interface Props { lang: Lang }
+const { lang } = Astro.props;
+const t = ui[lang].demo;
+const s = t.diagram;
+
+// Outlines in a 1400 × 1235 space over the diagram, in stacking order (later ones win the pointer).
+const shapes = [
+  { id: 'chip', n: 4, d: 'M78 925 Q700 627 1282 925 L1282 878 Q700 580 78 878 Z', marker: [1010, 760] },
+  { id: 'support', n: 5, d: 'M80 788 H154 V898 H80 Z M1220 793 H1294 V903 H1220 Z', marker: [117, 750] },
+  { id: 'piezo', n: 6, d: 'M528 800 H754 V1142 H528 Z', marker: [697, 1182] },
+  { id: 'electrodes', n: 1, d: 'M333 243 H624 V610 H333 Z M776 243 H1064 V610 H776 Z', marker: [478, 640] },
+  { id: 'gap', n: 2, d: 'M626 282 H774 V612 H626 Z', marker: [700, 640] },
+  { id: 'circuit', n: 3, d: 'M252 158 H328 V264 H252 Z', marker: [362, 190] },
+] as const;
+const parts = shapes.map((p) => ({ ...p, marker: [...p.marker] as [number, number], ...s.parts[p.id] }));
+const labels = [
+  { lines: [...s.labels.electrodes], x: 1085, y: 197, anchor: 'end' as const, fixed: true },
+  { lines: [...s.labels.support], x: 118, y: 950 },
+  { lines: [...s.labels.piezo], x: 775, y: 955 },
+];
+---
+<HotspotFigure
+  id="nanogap-diagram"
+  src={art}
+  alt={s.alt}
+  size={[1400, 1235]}
+  parts={parts}
+  labels={labels}
+  kicker={t.explore}
+  title={s.title}
+  intro={s.intro}
+  prompt={s.prompt}
+  maxWidth="36rem"
+/>
