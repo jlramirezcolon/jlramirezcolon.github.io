@@ -61,6 +61,8 @@ Deployment: every push to `main` runs `.github/workflows/deploy.yml` (`withastro
 
 **Styling.** Design tokens (colors, band colors, fonts, fluid type scale `--step-*`, spacing, `--glow-strength`) are at the top of `src/styles/global.css`, with a dark-mode override that follows the system unless the header toggle sets `data-theme` on `<html>` (saved in `localStorage`, applied before paint in `Base.astro`; canvases recolor on the `themechange` event), plus shared utilities (`.label`, `.button`, `.glow`, `data-reveal`). Components use scoped `<style>` blocks. Helvetica Neue is not a web font: it renders on Apple devices, and other visitors get Inter (loaded from Google Fonts, downloaded only when Helvetica Neue is missing).
 
+**Analytics.** GoatCounter (cookieless) is loaded in the `<head>` of `Base.astro`; the dashboard is https://jlramirezcolon.goatcounter.com.
+
 **Motion plumbing.** `Base.astro` adds a `js` class to `<html>` and runs one IntersectionObserver that adds `.in` to `[data-reveal]` elements; the hidden state only applies under `.js`, so no-JS visitors see everything.
 
 ## Content conventions
