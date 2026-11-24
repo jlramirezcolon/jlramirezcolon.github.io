@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import { getImage } from 'astro:assets';
+import portrait from '../assets/work/profile-pic.jpg';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { site } from '../site';
@@ -13,6 +15,29 @@ const desc = description ?? t.heroIntro;
 const path = Astro.url.pathname;
 const enPath = lang === 'en' ? path : otherLangPath('es', path);
 const esPath = lang === 'es' ? path : otherLangPath('en', path);
+const canonical = new URL(path, Astro.site);
+// Link previews default to the portrait; project pages pass their painting instead.
+const ogPortrait = await getImage({ src: portrait, width: 1200, format: 'jpg' });
+const ogImage = new URL(image ?? ogPortrait.src, Astro.site);
+// On the home pages, tell search engines who the site is about (schema.org Person).
+const isHome = path === '/' || path === '/es/';
+const person = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: site.name,
+  alternateName: ['Jose Luis Ramirez Colon', 'José Luis Ramírez-Colón', 'José L. Ramírez-Colón', site.shortName],
+  url: new URL('/', Astro.site).href,
+  image: ogImage.href,
+  jobTitle: 'Research Scientist II',
+  worksFor: { '@type': 'Organization', name: 'Georgia Institute of Technology', department: 'Planetary Exploration Laboratory' },
+  alumniOf: [
+    { '@type': 'CollegeOrUniversity', name: 'Georgia Institute of Technology' },
+    { '@type': 'CollegeOrUniversity', name: 'University of Puerto Rico, Río Piedras' },
+  ],
+  knowsAbout: ['Astrobiology', 'Life detection', 'Quantum chemistry', 'Science communication'],
+  description: ui.en.heroIntro,
+  sameAs: site.socials.map((s) => s.url),
+};
 ---
 <!doctype html>
 <html lang={lang}>
@@ -25,10 +50,16 @@ const esPath = lang === 'es' ? path : otherLangPath('en', path);
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="alternate" hreflang="en" href={new URL(enPath, Astro.site)} />
     <link rel="alternate" hreflang="es" href={new URL(esPath, Astro.site)} />
+    <link rel="alternate" hreflang="x-default" href={new URL(enPath, Astro.site)} />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap.xml" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={desc} />
     <meta property="og:type" content="website" />
-    {image && <meta property="og:image" content={new URL(image, Astro.site)} />}
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:locale" content={lang === 'es' ? 'es_PR' : 'en_US'} />
+    <meta property="og:image" content={ogImage} />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -46,6 +77,7 @@ const esPath = lang === 'es' ? path : otherLangPath('en', path);
         if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
       } catch {}
     </script>
+    {isHome && <script type="application/ld+json" set:html={JSON.stringify(person)} />}
     <!-- Visitor analytics (GoatCounter: no cookies, no personal data). Dashboard: https://jlramirezcolon.goatcounter.com -->
     <script is:inline data-goatcounter="https://jlramirezcolon.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
   </head>
